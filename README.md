@@ -43,5 +43,30 @@ Timing patterns are one-module wide row and column of alternating dark and light
 They are only present in QR Code version 2 or higher. They consist of superimposed concentric squares of sizes 5 (dark modules), 3 (light modules) and 1 (dark module). They are positioned symmetrically on either size of the diagonal and spaced as evenly distribued as possible.
 
 ### Format information
+The format information is a 15-bit sequence containing 5 data bits with 10 error correction bits calculated using the (15, 5) Bose-Chaudhuri-Hocquenghem code. The first two data bits contain the error correction level as per the following table:
+
+| Err corr lvl | Binary code |
+| ------------ | ----------- |
+| L | 01 |
+| M | 00 |
+| Q | 11 |
+| H | 10 |
+
+The third to fifth data bits contain the data mask pattern (000 to 111 bits). Masks are not applied to funcion modules (finder patterns, separator, timing patterns and alignment patterns) only to data modules.
+
+| Mask pattern QR Code | Mask pattern Micro QR Code | Condition |
+| -------------------- | -------------------------- | --------- |
+| 000 | | (i + j) mod 2 = 0 |
+| 001 | 00 | i mod 2 = 0 |
+| 010 | | j mod 3 = 0 |
+| 011 | | (i + j) mod 3 = 0 |
+| 100 | 01 | ((i div 2) + ( j div 3)) mod 2 = 0 |
+| 101 | | (i j) mod 2 + (i j) mod 3 = 0 |
+| 110 | 10 | ((i j) mod 2 + (i j) mod 3) mod 2 = 0 |
+| 111 | 11 | ((i+j) mod 2 + (i j) mod 3) mod 2 = 0 |
+
+The 15-bit error corrected format information must then be XORed with the mask pattern 1010 1000 0010 010 to ensure a non all-zero data string.
+
+The resulting bit string is mapped twice in the QR code, in the corresponding areas reserved in column and row 9. The module (4*V + 9, 8) where V is the version number shall always be a dark module and is not part of the format information.
 
 ### Version information
