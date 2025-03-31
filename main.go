@@ -19,14 +19,20 @@ type qr struct {
 }
 
 func (qr *qr) init() {
-	// Filler
+	qr.dummy_filler()
+	qr.finder_patterns()
+	qr.separator()
+}
+
+func (qr *qr) dummy_filler() {
 	for i := range qr.size {
 		for j := range qr.size {
 			qr.matrix[i][j] = module{value: F}
 		}
 	}
+}
 
-	// finder patterns
+func (qr *qr) finder_patterns() {
 	// upper left corner
 	for i := range 7 { // size 7
 		for j := range 7 {
@@ -77,7 +83,32 @@ func (qr *qr) init() {
 			qr.matrix[i][j] = module{value: Y}
 		}
 	}
+}
 
+func (qr *qr) separator() {
+	// upper left
+	for i := range 8 {
+		qr.matrix[i][7] = module{value: N}
+	}
+	for j := range 8 {
+		qr.matrix[7][j] = module{value: N}
+	}
+
+	// lower left
+	for i := qr.size - 1; i > qr.size-7-1; i-- {
+		qr.matrix[i][7] = module{value: N}
+	}
+	for j := range 8 {
+		qr.matrix[qr.size-7-1][j] = module{value: N}
+	}
+
+	// upper right
+	for i := range 8 {
+		qr.matrix[i][qr.size-7-1] = module{value: N}
+	}
+	for j := qr.size - 1; j > qr.size-7-1; j-- {
+		qr.matrix[7][j] = module{value: N}
+	}
 }
 
 func NewQRCode(version int, is_micro bool) *qr {
