@@ -34,10 +34,13 @@ For Micro QR Code its width shall be equal to the width of 2 modules.
 Three identical finder patterns located in the upper left, upper right and lower left corners. Each finder pattern consist of three superimposed concentric squares constructed of 7 x 7 dark modules, 5 x 5 light modules and 3 x 3 dark modules.
 
 ### Separator
+Is a one-module wide separator around each finder pattern consisting of all light modules.
 
 ### Timing patterns
+Timing patterns are one-module wide row and column of alternating dark and light modules commencing and ending with a dark module. In QR Code the lines run on row and column 6. In Micro QR Code they run on row and column 0.
 
 ### Alignment patterns
+They are only present in QR Code version 2 or higher. They consist of superimposed concentric squares of sizes 5 (dark modules), 3 (light modules) and 1 (dark module). They are positioned symmetrically on either size of the diagonal and spaced as evenly distribued as possible.
 
 ### Format information
 
