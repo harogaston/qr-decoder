@@ -27,22 +27,57 @@ func (qr *qr) init() {
 	}
 
 	// finder patterns
-	// upper right corner
-	for i := range 7 {
+	// upper left corner
+	for i := range 7 { // size 7
 		for j := range 7 {
 			qr.matrix[i][j] = module{value: Y}
 		}
 	}
-	for i := 1; i < 6; i++ {
+	for i := 1; i < 6; i++ { // size 5
 		for j := 1; j < 6; j++ {
 			qr.matrix[i][j] = module{value: N}
 		}
 	}
-	for i := 2; i < 5; i++ {
+	for i := 2; i < 5; i++ { // size 3
 		for j := 2; j < 5; j++ {
 			qr.matrix[i][j] = module{value: Y}
 		}
 	}
+
+	// lower left corner
+	for i := qr.size - 1; i > qr.size-7-1; i-- { // size 7
+		for j := range 7 {
+			qr.matrix[i][j] = module{value: Y}
+		}
+	}
+	for i := qr.size - 1 - 1; i > qr.size-6-1; i-- { // size 5
+		for j := 1; j < 6; j++ {
+			qr.matrix[i][j] = module{value: N}
+		}
+	}
+	for i := qr.size - 1 - 2; i > qr.size-5-1; i-- { // size 3
+		for j := 2; j < 5; j++ {
+			qr.matrix[i][j] = module{value: Y}
+		}
+	}
+
+	// upper rigth corner
+	for i := range 7 { // size 7
+		for j := qr.size - 1; j > qr.size-7-1; j-- {
+			qr.matrix[i][j] = module{value: Y}
+		}
+	}
+	for i := 1; i < 6; i++ { // size 5
+		for j := qr.size - 1 - 1; j > qr.size-6-1; j-- {
+			qr.matrix[i][j] = module{value: N}
+		}
+	}
+	for i := 2; i < 5; i++ { // size 3
+		for j := qr.size - 1 - 2; j > qr.size-5-1; j-- {
+			qr.matrix[i][j] = module{value: Y}
+		}
+	}
+
 }
 
 func NewQRCode(version int, is_micro bool) *qr {
