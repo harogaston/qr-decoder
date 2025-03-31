@@ -7,11 +7,9 @@ import (
 	"strconv"
 )
 
-const Y = `■` // \u25A0
-const N = `□` // \u25A1
-const F = `▿` // \u25BF or \u25AA or \u25AB
-var W = module{value: N}
-var B = module{value: Y}
+const Y = `■`     // \u25A0
+const N = `□`     // \u25A1
+const undef = `▿` // \u25BF or \u25AA or \u25AB
 
 type qr struct {
 	matrix  [][]module
@@ -26,12 +24,14 @@ func (qr *qr) init() {
 	qr.separators()
 	qr.timing_patterns()
 	qr.alignment_patterns()
+	qr.format_information()
+	qr.version_information()
 }
 
 func (qr *qr) dummy_filler() {
 	for i := range qr.size {
 		for j := range qr.size {
-			qr.matrix[i][j] = module{value: F}
+			qr.matrix[i][j] = module{value: undef}
 		}
 	}
 }
@@ -189,6 +189,47 @@ func (qr *qr) add_alignment_pattern_modules(row int, col int) {
 
 	// single central dark module
 	qr.matrix[row][col] = module{value: Y}
+}
+
+func (qr *qr) format_information() {
+	// FIXME: Fill dummy data for now
+	// row 8
+	for j := range qr.size {
+		if j < 6 || j > 6 && j < 8 || j > qr.size-8-1 {
+			qr.matrix[8][j] = module{value: "f"}
+		}
+	}
+	// column 8
+	for i := range qr.size {
+		if i < 6 || i > 6 && i <= 8 || i > qr.size-8 {
+			qr.matrix[i][8] = module{value: "f"}
+		}
+	}
+
+	// set always dark module 4V + 9, 8
+	qr.matrix[4*qr.version.number+9][8] = module{value: Y}
+}
+
+func (qr *qr) version_information() {
+	// Version information is only included for version 7 and up
+	if qr.version.number < 7 {
+		return
+	}
+
+	// FIXME: Fill dummy data for now
+	// 6 x 3 top right module block
+	for i := range 6 {
+		for j := qr.size - 8 - 1; j > qr.size-8-1-3; j-- {
+			qr.matrix[i][j] = module{value: "v"}
+		}
+	}
+
+	// 3 x 6 lower left module block
+	for i := qr.size - 8 - 1; i > qr.size-8-1-3; i-- {
+		for j := range 6 {
+			qr.matrix[i][j] = module{value: "v"}
+		}
+	}
 }
 
 func NewQRCode(version int, is_micro bool) *qr {

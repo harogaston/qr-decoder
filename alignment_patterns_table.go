@@ -50,5 +50,5 @@ func get_alignment_patterns_for_version(version int) [][]int {
 		return [][]int{}
 	}
 
-	return alignment_patterns_table[version-2]
+	return alignment_patterns_table[version-1]
 }

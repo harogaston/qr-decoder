@@ -52,7 +52,7 @@ The format information is a 15-bit sequence containing 5 data bits with 10 error
 | Q | 11 |
 | H | 10 |
 
-The third to fifth data bits contain the data mask pattern (000 to 111 bits). Masks are not applied to funcion modules (finder patterns, separator, timing patterns and alignment patterns) only to data modules.
+The third to fifth data bits contain the data mask pattern (000 to 111 bits). Masks are not applied to function modules (finder patterns, separator, timing patterns and alignment patterns) only to data modules.
 
 | Mask pattern QR Code | Mask pattern Micro QR Code | Condition |
 | -------------------- | -------------------------- | --------- |
@@ -67,6 +67,9 @@ The third to fifth data bits contain the data mask pattern (000 to 111 bits). Ma
 
 The 15-bit error corrected format information must then be XORed with the mask pattern 1010 1000 0010 010 to ensure a non all-zero data string.
 
-The resulting bit string is mapped twice in the QR code, in the corresponding areas reserved in column and row 9. The module (4*V + 9, 8) where V is the version number shall always be a dark module and is not part of the format information.
+The resulting bit sequence is mapped twice into the QR code, in the corresponding areas reserved in column and row 9. The module (4*V + 9, 8) where V is the version number shall always be a dark module and is not part of the format information.
 
 ### Version information
+Version information is included in QR Code version 7 or higher only. It consists of am 18-bit sequence containing 6 data bits with 12 error correction bits calculated using the Golay code. No version information will result in an all-zero data string since only versions 7 to 40 contain version information. Masking is not applied to version information (but global data masking is).
+
+The resulting bis sequence is mapped twice in the QR Code, into the areas reserved for it in the 6 x 3 module block above the timing pattern and immediately to the left or the top right finder pattern separator, and the 3 x 6 module block to the left of the timing pattern and immediately above the lower left finder pattern separator.
