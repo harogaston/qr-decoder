@@ -3,6 +3,8 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"os"
+	"strconv"
 )
 
 const Y = `■` // \u25A0
@@ -21,7 +23,9 @@ type qr struct {
 func (qr *qr) init() {
 	qr.dummy_filler()
 	qr.finder_patterns()
-	qr.separator()
+	qr.separators()
+	qr.timing_patterns()
+	qr.alignment_patterns()
 }
 
 func (qr *qr) dummy_filler() {
@@ -85,7 +89,7 @@ func (qr *qr) finder_patterns() {
 	}
 }
 
-func (qr *qr) separator() {
+func (qr *qr) separators() {
 	// upper left
 	for i := range 8 {
 		qr.matrix[i][7] = module{value: N}
@@ -109,6 +113,82 @@ func (qr *qr) separator() {
 	for j := qr.size - 1; j > qr.size-7-1; j-- {
 		qr.matrix[7][j] = module{value: N}
 	}
+}
+
+func (qr *qr) timing_patterns() {
+	// TODO: fix for MQ
+	// row 6
+	alternating_flag := false
+	for j := 8; j < qr.size-8; j++ {
+		if alternating_flag {
+			qr.matrix[6][j] = module{value: N}
+		} else {
+			qr.matrix[6][j] = module{value: Y}
+		}
+		alternating_flag = !alternating_flag
+	}
+
+	alternating_flag = false
+	// column 6
+	for i := 8; i < qr.size-8; i++ {
+		if alternating_flag {
+			qr.matrix[i][6] = module{value: N}
+		} else {
+			qr.matrix[i][6] = module{value: Y}
+		}
+		alternating_flag = !alternating_flag
+	}
+}
+
+func (qr *qr) alignment_patterns() {
+	coords := get_alignment_patterns_for_version(qr.version.number)
+	for _, alignment_pos := range coords {
+		alignment_pattern_upper_left := []int{alignment_pos[0] - 2, alignment_pos[1] - 2}
+		alignment_pattern_lower_left := []int{alignment_pos[0] + 2, alignment_pos[1] - 2}
+		alignment_pattern_upper_right := []int{alignment_pos[0] - 2, alignment_pos[1] + 2}
+
+		// check upper left colission
+		finder_lower_right := []int{6, 6}
+		if finder_lower_right[0] >= alignment_pattern_upper_left[0] &&
+			finder_lower_right[1] >= alignment_pattern_upper_left[1] {
+			continue
+		}
+
+		// check lower left colission
+		finder_upper_right := []int{qr.size - 7, 6}
+		if finder_upper_right[0] <= alignment_pattern_lower_left[0] &&
+			finder_upper_right[1] >= alignment_pattern_lower_left[1] {
+			continue
+		}
+
+		// check upper right colission
+		finder_lower_left := []int{6, qr.size - 7}
+		if finder_lower_left[0] >= alignment_pattern_upper_right[0] &&
+			finder_lower_left[1] <= alignment_pattern_upper_right[1] {
+			continue
+		}
+
+		// no colissions good to go
+		qr.add_alignment_pattern_modules(alignment_pos[0], alignment_pos[1])
+	}
+}
+
+func (qr *qr) add_alignment_pattern_modules(row int, col int) {
+	// 5 by 5 dark square
+	for i := row - 2; i <= row+2; i++ {
+		for j := col - 2; j <= col+2; j++ {
+			qr.matrix[i][j] = module{value: Y}
+		}
+	}
+	// 3 by 3 light square
+	for i := row - 1; i <= row+1; i++ {
+		for j := col - 1; j <= col+1; j++ {
+			qr.matrix[i][j] = module{value: N}
+		}
+	}
+
+	// single central dark module
+	qr.matrix[row][col] = module{value: Y}
 }
 
 func NewQRCode(version int, is_micro bool) *qr {
@@ -155,6 +235,7 @@ type module struct {
 }
 
 func (qr *qr) String() string {
+	// FIXME: support more than version 20 or size 99 modules
 	var b bytes.Buffer
 	// Write header line
 	b.WriteString("  ")
@@ -177,6 +258,14 @@ func (qr *qr) String() string {
 }
 
 func main() {
-	qr := NewQRCode(1, false)
+	args := os.Args[1:]
+	version := 1
+	if len(args) > 0 {
+		if v, err := strconv.Atoi(args[0]); err == nil {
+			version = v
+		}
+	}
+	fmt.Println(version)
+	qr := NewQRCode(version, false)
 	fmt.Println(qr.String())
 }
