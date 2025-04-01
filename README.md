@@ -70,6 +70,90 @@ The 15-bit error corrected format information must then be XORed with the mask p
 The resulting bit sequence is mapped twice into the QR code, in the corresponding areas reserved in column and row 9. The module (4*V + 9, 8) where V is the version number shall always be a dark module and is not part of the format information.
 
 ### Version information
-Version information is included in QR Code version 7 or higher only. It consists of am 18-bit sequence containing 6 data bits with 12 error correction bits calculated using the Golay code. No version information will result in an all-zero data string since only versions 7 to 40 contain version information. Masking is not applied to version information (but global data masking is).
+Version information is included in QR Code version 7 or higher only. It consists of am 18-bit sequence containing 6 data bits with 12 error correction bits calculated using the (18, 6) Golay code. No version information will result in an all-zero data string since only versions 7 to 40 contain version information. Masking is not applied to version information (but global data masking is).
 
 The resulting bis sequence is mapped twice in the QR Code, into the areas reserved for it in the 6 x 3 module block above the timing pattern and immediately to the left or the top right finder pattern separator, and the 3 x 6 module block to the left of the timing pattern and immediately above the lower left finder pattern separator.
+
+# Encoding procedure overview
+## Step 1: Data analysis
+Identify the different characters to encode. Select the desired error correction level. If no version is specified, select the smallest version that can accomodate the data.
+
+## Step 2: Data encoding
+Convert the data into a bit stream in accordance with the rules for the selected mode or modes. Split the resulting bit stream into 8-bit codewords. Add pad characters as necessary to fill the number of required data codewords required for the version.
+
+## Step 3: Error correction coding
+Divide the codeword sequence into the required number of blocks. Generate the error correction codewords for each block.
+
+## Step 4: Structure final message
+Interleave the data and error correction codewords from each block and add reminder bits as necessary. Place modules in matrix (together with finder patterns, separators, timing pattern and possibly alignment patterns).
+
+## Step 5: Data masking
+Apply the data masking patterns, evaluate the results and select the pattern which
+optimizes the dark/light module balance.
+
+## Step 6: Format and version information
+Generate the format information and, where applicable, the version information.
+
+# Encoding procedure
+## Data analysis
+Analyse the input data and appropiate mode to encode each sequence.
+
+## Modes
+The default interpretation for QR Code is ECI (extended channel interpretation) 000003 representing the ISO/IEC 8859-1 character set. A QR Code can contain sequences of data in a combination of any of the modes described here. Special sequences of data are used to signal mode changes.
+
+### Numeric mode
+The numeric mode encodes data from the decimal digit set (0 - 9) or \x30 to \x39.
+
+### Alphanumeric mode
+The alphanumeric mode encodes data from a set of 45 characters: 10 numeric digits, 26 alphabetic characters (A - Z) and nine symbols (SP, $, %, *, +, -, ., /, :) or \x30 to \x39, \x41 to \x5A and \x20, \x24, \x25, \x2A, \x2B, \x2D to \x2F and \x3A.
+
+### Byte mode
+In byte mode, data is encoded at 8 bits per character.
+
+### Kanji mode
+The Kanji mode efficiently encodes Kanji characters acoording to the shift JIS system based on JIS X 0208.
+
+### Structured append mode
+This mode is used to split data across multiple QR Code symbols. It is not covered by this implementation.
+
+#### Modes indicator table
+| Mode              | Binary code |
+| ----------------- | ----------- |
+| ECI               | 0111        |
+| Numeric           | 0001        |
+| Alphanumeric      | 0010        |
+| Byte              | 0100        |
+| Kanji             | 1000        |
+| Structured append | 0011        |
+
+(*) The termination (end of message) code is 0000.
+
+#### Character count indicator (number of bits)
+|  Version | Numeric mode | Alphanumeric mode | Byte mode |
+| -------- | ------------ | ----------------- | --------- |
+| M1       | 3            | N/A               | N/A       |
+| M2       | 4            | 3                 | N/A       |
+| M3       | 5            | 4                 | 4         |
+| M4       | 6            | 5                 | 5         |
+| 1 to 9   | 10           | 9                 | 8         |
+| 10 to 26 | 12           | 11                | 16        | 
+| 27 to 40 | 14           | 13                | 16        |
+
+# Data masking
+For reliable QR code reading, it is preferable for dark and light modules to be arranged in a well-balanced 
+manner in the symbol. The module pattern 1011101 particularly found in the finder pattern should be 
+avoided in other areas of the symbol as much as possible. To meet the above conditions, data masking should 
+be applied following the steps.
+
+a. Do not apply data masking to function patterns.
+
+b. Convert the given module pattern in the encoding region (excluding the format information and the 
+version information) with multiple matrix patterns successively through the XOR operation. For the XOR 
+operation, lay the module pattern over each of the data masking matrix patterns in turn and reverse 
+the modules (from light to dark or vice versa) which correspond to dark modules of the data masking 
+pattern.
+
+c. Evaluate all the resulting converted patterns by charging penalties for undesirable features on each 
+conversion result.
+
+d. Select the pattern with the lowest penalty points score.

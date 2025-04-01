@@ -19,19 +19,26 @@ type qr struct {
 }
 
 func (qr *qr) init() {
+	// TODO: Remove me later
 	qr.dummy_filler()
+
+	// Functions patterns
 	qr.finder_patterns()
 	qr.separators()
 	qr.timing_patterns()
 	qr.alignment_patterns()
+
+	// Encoding region
 	qr.format_information()
 	qr.version_information()
+	qr.data()
+	// TODO: Add quiet zone
 }
 
 func (qr *qr) dummy_filler() {
 	for i := range qr.size {
 		for j := range qr.size {
-			qr.matrix[i][j] = module{value: undef}
+			qr.matrix[i][j] = module{bit: Undef}
 		}
 	}
 }
@@ -40,51 +47,51 @@ func (qr *qr) finder_patterns() {
 	// upper left corner
 	for i := range 7 { // size 7
 		for j := range 7 {
-			qr.matrix[i][j] = module{value: Y}
+			qr.matrix[i][j] = module{bit: One}
 		}
 	}
 	for i := 1; i < 6; i++ { // size 5
 		for j := 1; j < 6; j++ {
-			qr.matrix[i][j] = module{value: N}
+			qr.matrix[i][j] = module{bit: Zero}
 		}
 	}
 	for i := 2; i < 5; i++ { // size 3
 		for j := 2; j < 5; j++ {
-			qr.matrix[i][j] = module{value: Y}
+			qr.matrix[i][j] = module{bit: One}
 		}
 	}
 
 	// lower left corner
 	for i := qr.size - 1; i > qr.size-7-1; i-- { // size 7
 		for j := range 7 {
-			qr.matrix[i][j] = module{value: Y}
+			qr.matrix[i][j] = module{bit: One}
 		}
 	}
 	for i := qr.size - 1 - 1; i > qr.size-6-1; i-- { // size 5
 		for j := 1; j < 6; j++ {
-			qr.matrix[i][j] = module{value: N}
+			qr.matrix[i][j] = module{bit: Zero}
 		}
 	}
 	for i := qr.size - 1 - 2; i > qr.size-5-1; i-- { // size 3
 		for j := 2; j < 5; j++ {
-			qr.matrix[i][j] = module{value: Y}
+			qr.matrix[i][j] = module{bit: One}
 		}
 	}
 
 	// upper rigth corner
 	for i := range 7 { // size 7
 		for j := qr.size - 1; j > qr.size-7-1; j-- {
-			qr.matrix[i][j] = module{value: Y}
+			qr.matrix[i][j] = module{bit: One}
 		}
 	}
 	for i := 1; i < 6; i++ { // size 5
 		for j := qr.size - 1 - 1; j > qr.size-6-1; j-- {
-			qr.matrix[i][j] = module{value: N}
+			qr.matrix[i][j] = module{bit: Zero}
 		}
 	}
 	for i := 2; i < 5; i++ { // size 3
 		for j := qr.size - 1 - 2; j > qr.size-5-1; j-- {
-			qr.matrix[i][j] = module{value: Y}
+			qr.matrix[i][j] = module{bit: One}
 		}
 	}
 }
@@ -92,26 +99,26 @@ func (qr *qr) finder_patterns() {
 func (qr *qr) separators() {
 	// upper left
 	for i := range 8 {
-		qr.matrix[i][7] = module{value: N}
+		qr.matrix[i][7] = module{bit: Zero}
 	}
 	for j := range 8 {
-		qr.matrix[7][j] = module{value: N}
+		qr.matrix[7][j] = module{bit: Zero}
 	}
 
 	// lower left
 	for i := qr.size - 1; i > qr.size-7-1; i-- {
-		qr.matrix[i][7] = module{value: N}
+		qr.matrix[i][7] = module{bit: Zero}
 	}
 	for j := range 8 {
-		qr.matrix[qr.size-7-1][j] = module{value: N}
+		qr.matrix[qr.size-7-1][j] = module{bit: Zero}
 	}
 
 	// upper right
 	for i := range 8 {
-		qr.matrix[i][qr.size-7-1] = module{value: N}
+		qr.matrix[i][qr.size-7-1] = module{bit: Zero}
 	}
 	for j := qr.size - 1; j > qr.size-7-1; j-- {
-		qr.matrix[7][j] = module{value: N}
+		qr.matrix[7][j] = module{bit: Zero}
 	}
 }
 
@@ -121,9 +128,9 @@ func (qr *qr) timing_patterns() {
 	alternating_flag := false
 	for j := 8; j < qr.size-8; j++ {
 		if alternating_flag {
-			qr.matrix[6][j] = module{value: N}
+			qr.matrix[6][j] = module{bit: Zero}
 		} else {
-			qr.matrix[6][j] = module{value: Y}
+			qr.matrix[6][j] = module{bit: One}
 		}
 		alternating_flag = !alternating_flag
 	}
@@ -132,9 +139,9 @@ func (qr *qr) timing_patterns() {
 	// column 6
 	for i := 8; i < qr.size-8; i++ {
 		if alternating_flag {
-			qr.matrix[i][6] = module{value: N}
+			qr.matrix[i][6] = module{bit: Zero}
 		} else {
-			qr.matrix[i][6] = module{value: Y}
+			qr.matrix[i][6] = module{bit: One}
 		}
 		alternating_flag = !alternating_flag
 	}
@@ -177,37 +184,57 @@ func (qr *qr) add_alignment_pattern_modules(row int, col int) {
 	// 5 by 5 dark square
 	for i := row - 2; i <= row+2; i++ {
 		for j := col - 2; j <= col+2; j++ {
-			qr.matrix[i][j] = module{value: Y}
+			qr.matrix[i][j] = module{bit: One}
 		}
 	}
 	// 3 by 3 light square
 	for i := row - 1; i <= row+1; i++ {
 		for j := col - 1; j <= col+1; j++ {
-			qr.matrix[i][j] = module{value: N}
+			qr.matrix[i][j] = module{bit: Zero}
 		}
 	}
 
 	// single central dark module
-	qr.matrix[row][col] = module{value: Y}
+	qr.matrix[row][col] = module{bit: One}
 }
 
 func (qr *qr) format_information() {
-	// FIXME: Fill dummy data for now
-	// row 8
+	err_corr_level := get_error_correction_for_level(qr.version.error_corr_level)
+	err_corr_level_modules := modules_from_int(err_corr_level, 2, little_endian)
+
+	// FIXME: Select correct mask pattern
+	mask_pattern := get_mask_pattern_for_mask(0)
+	mask_pattern_modules := modules_from_int(mask_pattern.bits, 3, little_endian)
+
+	// FIXME: implement error correction
+	dummy_error_correction_modules := modules_from_int(0, 10, little_endian)
+
+	data := append(mask_pattern_modules, err_corr_level_modules...)
+	data = append(dummy_error_correction_modules, data...)
+
+	// TODO: apply format_information_mask
+	// create "mask" utility method
+
+	var pos int
+	// row 8 from least significant bit in col 0
 	for j := range qr.size {
 		if j < 6 || j > 6 && j < 8 || j > qr.size-8-1 {
-			qr.matrix[8][j] = module{value: "f"}
+			qr.matrix[8][j] = data[pos]
+			pos++
 		}
 	}
-	// column 8
+
+	pos = 0
+	// column 8 from least significant bit in row 0
 	for i := range qr.size {
 		if i < 6 || i > 6 && i <= 8 || i > qr.size-8 {
-			qr.matrix[i][8] = module{value: "f"}
+			qr.matrix[i][8] = data[pos]
+			pos++
 		}
 	}
 
 	// set always dark module 4V + 9, 8
-	qr.matrix[4*qr.version.number+9][8] = module{value: Y}
+	qr.matrix[4*qr.version.number+9][8] = module{bit: One}
 }
 
 func (qr *qr) version_information() {
@@ -216,23 +243,46 @@ func (qr *qr) version_information() {
 		return
 	}
 
-	// FIXME: Fill dummy data for now
+	version_modules := modules_from_int(qr.version.number, 6, little_endian)
+	// FIXME: implement error correction
+	dummy_error_correction_modules := modules_from_int(0, 12, little_endian)
+	data := append(dummy_error_correction_modules, version_modules...)
+
 	// 6 x 3 top right module block
+	// With 0 representing the least significant bit the placement must be as shown
+	//  0  1  2
+	//  3  4  5
+	//  6  7  8
+	//  9 10 11
+	// 12 13 14
+	// 15 16 17
+	var pos int
 	for i := range 6 {
-		for j := qr.size - 8 - 1; j > qr.size-8-1-3; j-- {
-			qr.matrix[i][j] = module{value: "v"}
+		for j := qr.size - 8 - 1 - 3; j < qr.size-8-1; j++ {
+			qr.matrix[i][j] = data[pos]
+			pos++
 		}
 	}
 
 	// 3 x 6 lower left module block
-	for i := qr.size - 8 - 1; i > qr.size-8-1-3; i-- {
-		for j := range 6 {
-			qr.matrix[i][j] = module{value: "v"}
+	// With 0 representing the least significant bit the placement must be as shown
+	// 0  3  6  9 12 15
+	// 1  4  7 10 13 16
+	// 2  5  8 11 14 17
+	pos = 0
+	for j := range 6 {
+		for i := qr.size - 8 - 1 - 3; i < qr.size-8-1; i++ {
+			qr.matrix[i][j] = data[pos]
+			pos++
 		}
 	}
 }
 
-func NewQRCode(version int, is_micro bool) *qr {
+func (qr *qr) data() {
+
+}
+
+func NewQRCode(version int, is_micro bool, error_correction_level string) *qr {
 	size := 21 + (version-1)*4
 	matrix := make([][]module, size)
 	for i := range size {
@@ -241,7 +291,8 @@ func NewQRCode(version int, is_micro bool) *qr {
 	qr := &qr{
 		matrix: matrix,
 		version: qrversion{
-			number: version,
+			number:           version,
+			error_corr_level: errcorr(error_correction_level),
 		},
 		format: QR_FORMAT_QR,
 		size:   size,
@@ -258,8 +309,15 @@ type qrformat string
 const QR_FORMAT_QR = "full"
 const QR_FORMAT_MICRO_QR = "micro"
 
+type errcorr string
+
+const ERR_CORR_L = "L"
+const ERR_CORR_M = "M"
+const ERR_CORR_Q = "Q"
+const ERR_CORR_H = "H"
+
 type qrversion struct {
-	error_corr_level string
+	error_corr_level errcorr
 	number           int
 }
 
@@ -271,8 +329,26 @@ func (qr *qr) Version() string {
 	return fmt.Sprintf("%s%d-%s", format, qr.version.number, qr.version.error_corr_level)
 }
 
+type Bit uint8
+
+const (
+	Zero Bit = iota
+	One
+	Undef
+)
+
 type module struct {
-	value string
+	bit Bit
+}
+
+func (m *module) String() string {
+	if m.bit == Zero {
+		return N
+	} else if m.bit == One {
+		return Y
+	} else {
+		return undef
+	}
 }
 
 func (qr *qr) String() string {
@@ -291,7 +367,7 @@ func (qr *qr) String() string {
 	for i, line := range qr.matrix {
 		b.WriteString(fmt.Sprintf("%2d ", i))
 		for _, cell := range line {
-			b.WriteString(cell.value + "  ")
+			b.WriteString(cell.String() + "  ")
 		}
 		b.WriteString("\n")
 	}
@@ -300,13 +376,24 @@ func (qr *qr) String() string {
 
 func main() {
 	args := os.Args[1:]
+
+	// QR Code version parsing
 	version := 1
 	if len(args) > 0 {
 		if v, err := strconv.Atoi(args[0]); err == nil {
 			version = v
 		}
 	}
+
+	// Error correction level parsing
+	err_corr_level := "L"
+	if len(args) > 1 {
+		if args[1] == ERR_CORR_L || args[1] == ERR_CORR_M || args[1] == ERR_CORR_Q || args[1] == ERR_CORR_H {
+			err_corr_level = args[1]
+		}
+	}
+
 	fmt.Println(version)
-	qr := NewQRCode(version, false)
+	qr := NewQRCode(version, false, err_corr_level)
 	fmt.Println(qr.String())
 }
