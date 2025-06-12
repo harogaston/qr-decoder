@@ -1,14 +1,15 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
+	"image/color"
 	"os"
 	"strconv"
+	"strings"
 )
 
-const Y = `■`     // \u25A0
-const N = `□`     // \u25A1
+const Black = `■` // \u25A0
+const White = `□` // \u25A1
 const undef = `▿` // \u25BF or \u25AA or \u25AB
 
 type qr struct {
@@ -19,9 +20,6 @@ type qr struct {
 }
 
 func (qr *qr) init() {
-	// TODO: Remove me later
-	qr.dummy_filler()
-
 	// Functions patterns
 	qr.finder_patterns()
 	qr.separators()
@@ -33,14 +31,6 @@ func (qr *qr) init() {
 	qr.version_information()
 	qr.data()
 	// TODO: Add quiet zone
-}
-
-func (qr *qr) dummy_filler() {
-	for i := range qr.size {
-		for j := range qr.size {
-			qr.matrix[i][j] = module{bit: Undef}
-		}
-	}
 }
 
 func (qr *qr) finder_patterns() {
@@ -176,11 +166,11 @@ func (qr *qr) alignment_patterns() {
 		}
 
 		// no colissions good to go
-		qr.add_alignment_pattern_modules(alignment_pos[0], alignment_pos[1])
+		qr.add_alignment_pattern_module(alignment_pos[0], alignment_pos[1])
 	}
 }
 
-func (qr *qr) add_alignment_pattern_modules(row int, col int) {
+func (qr *qr) add_alignment_pattern_module(row int, col int) {
 	// 5 by 5 dark square
 	for i := row - 2; i <= row+2; i++ {
 		for j := col - 2; j <= col+2; j++ {
@@ -332,46 +322,64 @@ func (qr *qr) Version() string {
 type Bit uint8
 
 const (
-	Zero Bit = iota
+	Undef Bit = iota
+	Zero
 	One
-	Undef
 )
 
 type module struct {
 	bit Bit
 }
 
-func (m *module) String() string {
+func (m *module) Color() color.Color {
 	if m.bit == Zero {
-		return N
+		return color.White
 	} else if m.bit == One {
-		return Y
+		return color.Black
+	} else {
+		return color.Transparent
+	}
+}
+
+func (m *module) Char() string {
+	if m.bit == Zero {
+		return White
+	} else if m.bit == One {
+		return Black
 	} else {
 		return undef
 	}
 }
 
 func (qr *qr) String() string {
-	// FIXME: support more than version 20 or size 99 modules
-	var b bytes.Buffer
-	// Write header line
-	b.WriteString("  ")
-	for i := range qr.size {
-		b.WriteString(fmt.Sprintf("%2d ", i))
-	}
-	b.WriteString("\n")
+	b := strings.Builder{}
+	b.WriteString(fmt.Sprintf("QR version %s (size %d)", qr.Version(), qr.size))
 
-	// TODO: quiet zone
-
-	// Write matrix with line number prefix
-	for i, line := range qr.matrix {
-		b.WriteString(fmt.Sprintf("%2d ", i))
-		for _, cell := range line {
-			b.WriteString(cell.String() + "  ")
-		}
-		b.WriteString("\n")
-	}
 	return b.String()
+}
+
+func (qr *qr) Print() {
+	req := TextRequest{
+		Size:  qr.size,
+		Chars: qr.matrix,
+	}
+	WriteText(req)
+}
+
+func (qr *qr) Draw() {
+	pixs := make([][]color.Color, len(qr.matrix[0]))
+	for y, row := range qr.matrix {
+		imgRow := make([]color.Color, len(row))
+		for x, c := range row {
+			imgRow[x] = c.Color()
+		}
+		pixs[y] = imgRow
+	}
+	req := ImageRequest{
+		Scale:  4,
+		Pixels: pixs,
+	}
+	WriteImage(req)
 }
 
 func main() {
@@ -393,7 +401,8 @@ func main() {
 		}
 	}
 
-	fmt.Println(version)
 	qr := NewQRCode(version, false, err_corr_level)
 	fmt.Println(qr.String())
+	qr.Draw()
+	// qr.Print()
 }
