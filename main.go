@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"image/color"
+	"math/bits"
 	"os"
 	"strconv"
 	"strings"
@@ -113,7 +114,6 @@ func (qr *qr) separators() {
 }
 
 func (qr *qr) timing_patterns() {
-	// TODO: fix for MQ
 	// row 6
 	alternating_flag := false
 	for j := 8; j < qr.size-8; j++ {
@@ -125,8 +125,8 @@ func (qr *qr) timing_patterns() {
 		alternating_flag = !alternating_flag
 	}
 
-	alternating_flag = false
 	// column 6
+	alternating_flag = false
 	for i := 8; i < qr.size-8; i++ {
 		if alternating_flag {
 			qr.matrix[i][6] = module{bit: Zero}
@@ -188,37 +188,77 @@ func (qr *qr) add_alignment_pattern_module(row int, col int) {
 	qr.matrix[row][col] = module{bit: One}
 }
 
+func uint_to_modules(num uint, targetSize int) []module {
+	var res []module
+
+	// The number of bits needed to represent 'num'
+	numBits := bits.Len(uint(num))
+
+	for range numBits {
+		if num&1 == 1 {
+			res = append(res, module{bit: One})
+		} else {
+			res = append(res, module{bit: Zero})
+		}
+		// Shift right by 1 to check the next bit
+		num >>= 1
+	}
+
+	// Adjust for desired size
+	var padding []module
+	if targetSize > 0 && targetSize > numBits {
+		padding = make([]module, targetSize-numBits)
+		for i := range padding {
+			padding[i] = module{bit: Zero}
+		}
+	}
+	return append(padding, res...)
+}
+
+func print_module_slice(mods []module) {
+	b := strings.Builder{}
+	for _, m := range mods {
+		b.WriteString(m.Char())
+	}
+	fmt.Println(b.String())
+}
+
 func (qr *qr) format_information() {
+	// 2 bits
 	err_corr_level := get_error_correction_for_level(qr.version.error_corr_level)
-	err_corr_level_modules := modules_from_int(err_corr_level, 2, little_endian)
 
-	// FIXME: Select correct mask pattern
+	// 3 bits
+	// FIXME: Try all and select the correct mask pattern (hardcoding 0 for now)
 	mask_pattern := get_mask_pattern_for_mask(0)
-	mask_pattern_modules := modules_from_int(mask_pattern.bits, 3, little_endian)
 
-	// FIXME: implement error correction
-	dummy_error_correction_modules := modules_from_int(0, 10, little_endian)
+	// 5 bits
+	format_data := err_corr_level<<3 + uint(mask_pattern.bits)
 
-	data := append(mask_pattern_modules, err_corr_level_modules...)
-	data = append(dummy_error_correction_modules, data...)
+	// 10 bits
+	// TODO: Implement BHC algorithm
+	bhc_code := get_bhc_codes(format_data)
 
-	// TODO: apply format_information_mask
-	// create "mask" utility method
+	// 15 bits
+	unmasked_data := format_data<<10 + bhc_code
+	xor_mask_pattern := uint(0b101010000010010)
+
+	data := unmasked_data ^ xor_mask_pattern
+	format_modules := uint_to_modules(data, 15)
 
 	var pos int
-	// row 8 from least significant bit in col 0
+	// row 8
 	for j := range qr.size {
-		if j < 6 || j > 6 && j < 8 || j > qr.size-8-1 {
-			qr.matrix[8][j] = data[pos]
+		if j < 6 || j == 7 || j > qr.size-8-1 {
+			qr.matrix[8][j] = format_modules[pos]
 			pos++
 		}
 	}
 
 	pos = 0
-	// column 8 from least significant bit in row 0
-	for i := range qr.size {
-		if i < 6 || i > 6 && i <= 8 || i > qr.size-8 {
-			qr.matrix[i][8] = data[pos]
+	// column 8
+	for i := qr.size - 1; i >= 0; i-- {
+		if i < 6 || i > 6 && i < 9 || i > qr.size-8 {
+			qr.matrix[i][8] = format_modules[pos]
 			pos++
 		}
 	}
@@ -227,18 +267,21 @@ func (qr *qr) format_information() {
 	qr.matrix[4*qr.version.number+9][8] = module{bit: One}
 }
 
+func get_bhc_codes(_ uint) uint {
+	return 0
+}
+
 func (qr *qr) version_information() {
 	// Version information is only included for version 7 and up
 	if qr.version.number < 7 {
 		return
 	}
 
-	version_modules := modules_from_int(qr.version.number, 6, little_endian)
+	version_pattern := uint_to_modules(uint(qr.version.number), 18)
 	// FIXME: implement error correction
-	dummy_error_correction_modules := modules_from_int(0, 12, little_endian)
-	data := append(dummy_error_correction_modules, version_modules...)
+	version_modules := version_pattern
 
-	// 6 x 3 top right module block
+	// 3 x 6 top right module block
 	// With 0 representing the least significant bit the placement must be as shown
 	//  0  1  2
 	//  3  4  5
@@ -248,21 +291,21 @@ func (qr *qr) version_information() {
 	// 15 16 17
 	var pos int
 	for i := range 6 {
-		for j := qr.size - 8 - 1 - 3; j < qr.size-8-1; j++ {
-			qr.matrix[i][j] = data[pos]
+		for j := qr.size - 8 - 3; j < qr.size-8; j++ {
+			qr.matrix[i][j] = version_modules[pos]
 			pos++
 		}
 	}
 
-	// 3 x 6 lower left module block
+	// 6 x 3 lower left module block
 	// With 0 representing the least significant bit the placement must be as shown
 	// 0  3  6  9 12 15
 	// 1  4  7 10 13 16
 	// 2  5  8 11 14 17
 	pos = 0
 	for j := range 6 {
-		for i := qr.size - 8 - 1 - 3; i < qr.size-8-1; i++ {
-			qr.matrix[i][j] = data[pos]
+		for i := qr.size - 8 - 3; i < qr.size-8; i++ {
+			qr.matrix[i][j] = version_modules[pos]
 			pos++
 		}
 	}
@@ -319,7 +362,7 @@ func (qr *qr) Version() string {
 	return fmt.Sprintf("%s%d-%s", format, qr.version.number, qr.version.error_corr_level)
 }
 
-type Bit uint8
+type Bit uint
 
 const (
 	Undef Bit = iota

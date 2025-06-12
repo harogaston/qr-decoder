@@ -2,6 +2,8 @@ package main
 
 const format_information_mask uint = 0b101010000010010
 
+// For a given mask any modules for which the condition is true
+// is defined as dark
 type mask struct {
 	bits      int
 	condition func(i, j int) Bit
