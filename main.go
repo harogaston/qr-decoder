@@ -256,8 +256,8 @@ func (qr *qr) format_information() {
 	err_corr_level := get_error_correction_for_level(qr.version.error_corr_level)
 
 	// 3 bits
-	// FIXME: Try all and select the correct mask pattern (hardcoding 0 for now)
-	mask_pattern := get_mask_pattern_for_mask(0)
+	// FIXME: Try all and select the correct mask pattern (hardcoding 101 for now)
+	mask_pattern := get_mask_pattern_for_mask(3)
 
 	// 5 bits
 	format_data := err_corr_level<<3 + uint(mask_pattern.bits)
