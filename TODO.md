@@ -8,3 +8,4 @@ Not implemented yet
 5. Pixel rounding/design
 6. ECI, Structured Append and Kanji encodings
 7. QR Model 1 support
+8. Mode switching
