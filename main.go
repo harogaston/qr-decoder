@@ -31,6 +31,7 @@ func (qr *qr) init() {
 	qr.format_information()
 	qr.version_information()
 	qr.data()
+
 	// TODO: Add quiet zone
 }
 
@@ -188,6 +189,33 @@ func (qr *qr) add_alignment_pattern_module(row int, col int) {
 	qr.matrix[row][col] = module{bit: One}
 }
 
+func uint_to_string(num uint, targetSize int) string {
+	res := strings.Builder{}
+
+	// The number of bits needed to represent 'num'
+	numBits := bits.Len(uint(num))
+
+	for range numBits {
+		if num&(1<<(numBits-1)) == 1<<(numBits-1) {
+			res.WriteString("1")
+		} else {
+			res.WriteString("0")
+		}
+		// Shift left by 1 to check the next bit
+		num <<= 1
+	}
+
+	// Adjust for desired size
+	var padding string
+	if targetSize > 0 && targetSize > numBits {
+		for range padding {
+			padding = fmt.Sprintf("0%s", padding)
+		}
+	}
+	res.WriteString(padding)
+	return res.String()
+}
+
 func uint_to_modules(num uint, targetSize int) []module {
 	var res []module
 
@@ -195,13 +223,13 @@ func uint_to_modules(num uint, targetSize int) []module {
 	numBits := bits.Len(uint(num))
 
 	for range numBits {
-		if num&1 == 1 {
+		if num&(1<<(numBits-1)) == 1<<(numBits-1) {
 			res = append(res, module{bit: One})
 		} else {
 			res = append(res, module{bit: Zero})
 		}
-		// Shift right by 1 to check the next bit
-		num >>= 1
+		// Shift left by 1 to check the next bit
+		num <<= 1
 	}
 
 	// Adjust for desired size
@@ -235,8 +263,7 @@ func (qr *qr) format_information() {
 	format_data := err_corr_level<<3 + uint(mask_pattern.bits)
 
 	// 10 bits
-	// TODO: Implement BHC algorithm
-	bhc_code := get_bhc_codes(format_data)
+	bhc_code := encodeBCH15_5(format_data)
 
 	// 15 bits
 	unmasked_data := format_data<<10 + bhc_code
@@ -267,8 +294,43 @@ func (qr *qr) format_information() {
 	qr.matrix[4*qr.version.number+9][8] = module{bit: One}
 }
 
-func get_bhc_codes(_ uint) uint {
-	return 0
+// Thank you Gemini 😉
+func encodeBCH15_5(data uint) uint {
+	const n = 15
+	const k = 5
+	const numParityBits = n - k // 10
+	const generatorPoly uint = 0b10100110111
+
+	// Pad the data: data << numParityBits
+	dividend := data << numParityBits
+
+	// Initialize remainder
+	remainder := dividend
+
+	// Perform polynomial long division
+	for i := range k {
+		// Check the leading bit of the current remainder segment
+		// The leading bit is at the (n-1 - i) position relative to the original dividend's MSB
+		// For example, for 15 bits, if i=0, we check bit 14. If i=1, check bit 13, etc.
+		// We need to check the bit that aligns with the MSB of the generator polynomial.
+
+		// This is where it gets tricky with fixed uints:
+		// How do you know the "current leading bit" without converting to array or complex masking?
+		// You would need to check the bit at (numParityBits + k - 1 - i) position.
+
+		currentMSBPos := numParityBits + k - 1 - i // This is the current bit position to check
+
+		if (remainder>>currentMSBPos)&0x1 == 1 { // Check if the leading bit is 1
+			// XOR with the generator polynomial, shifted to align with the current leading bit
+			// The generator needs to be shifted right to align its MSB with the remainder's current MSB
+			shiftAmount := currentMSBPos - 10
+			remainder ^= (generatorPoly << shiftAmount)
+		}
+	}
+
+	// The remainder now holds the parity bits
+	// Extract the last 'numParityBits' bits (LSBs)
+	return remainder & ((1 << numParityBits) - 1)
 }
 
 func (qr *qr) version_information() {
@@ -315,7 +377,8 @@ func (qr *qr) data() {
 
 }
 
-func NewQRCode(version int, is_micro bool, error_correction_level string) *qr {
+func NewQRCode(version int, error_correction_level string, data string) *qr {
+	is_micro := false
 	size := 21 + (version-1)*4
 	matrix := make([][]module, size)
 	for i := range size {
@@ -444,8 +507,14 @@ func main() {
 		}
 	}
 
-	qr := NewQRCode(version, false, err_corr_level)
+	// Data
+	data := "hello world!"
+	if len(args) > 2 {
+		data = args[2]
+	}
+
+	qr := NewQRCode(version, err_corr_level, data)
 	fmt.Println(qr.String())
 	qr.Draw()
-	// qr.Print()
+	qr.Print()
 }
