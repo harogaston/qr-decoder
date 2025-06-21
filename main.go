@@ -516,5 +516,5 @@ func main() {
 	qr := NewQRCode(version, err_corr_level, data)
 	fmt.Println(qr.String())
 	qr.Draw()
-	qr.Print()
+	// qr.Print()
 }
