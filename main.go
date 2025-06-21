@@ -191,9 +191,18 @@ func (qr *qr) add_alignment_pattern_module(row int, col int) {
 
 func uint_to_string(num uint, targetSize int) string {
 	res := strings.Builder{}
-
 	// The number of bits needed to represent 'num'
 	numBits := bits.Len(uint(num))
+
+	// Adjust for desired size
+	var padding string
+	if targetSize > 0 && targetSize > numBits {
+		for range targetSize - numBits {
+			padding = fmt.Sprintf("0%s", padding)
+		}
+	}
+
+	res.WriteString(padding)
 
 	for range numBits {
 		if num&(1<<(numBits-1)) == 1<<(numBits-1) {
@@ -205,14 +214,6 @@ func uint_to_string(num uint, targetSize int) string {
 		num <<= 1
 	}
 
-	// Adjust for desired size
-	var padding string
-	if targetSize > 0 && targetSize > numBits {
-		for range padding {
-			padding = fmt.Sprintf("0%s", padding)
-		}
-	}
-	res.WriteString(padding)
 	return res.String()
 }
 
@@ -333,15 +334,59 @@ func encodeBCH15_5(data uint) uint {
 	return remainder & ((1 << numParityBits) - 1)
 }
 
+func encodeGolay18_6(data uint) uint {
+	const n = 18
+	const k = 6
+	const numParityBits = n - k // 12
+	const generatorPoly uint = 0b1111100100101
+
+	// Pad the data: data << numParityBits
+	dividend := data << numParityBits
+
+	// Initialize remainder
+	remainder := dividend
+
+	// Perform polynomial long division
+	for i := range k {
+		// Check the leading bit of the current remainder segment
+		// The leading bit is at the (n-1 - i) position relative to the original dividend's MSB
+		// For example, for 15 bits, if i=0, we check bit 14. If i=1, check bit 13, etc.
+		// We need to check the bit that aligns with the MSB of the generator polynomial.
+
+		// This is where it gets tricky with fixed uints:
+		// How do you know the "current leading bit" without converting to array or complex masking?
+		// You would need to check the bit at (numParityBits + k - 1 - i) position.
+
+		currentMSBPos := numParityBits + k - 1 - i // This is the current bit position to check
+
+		if (remainder>>currentMSBPos)&0x1 == 1 { // Check if the leading bit is 1
+			// XOR with the generator polynomial, shifted to align with the current leading bit
+			// The generator needs to be shifted right to align its MSB with the remainder's current MSB
+			shiftAmount := currentMSBPos - 12
+			remainder ^= (generatorPoly << shiftAmount)
+		}
+	}
+
+	// The remainder now holds the parity bits
+	// Extract the last 'numParityBits' bits (LSBs)
+	return remainder & ((1 << numParityBits) - 1)
+}
+
 func (qr *qr) version_information() {
 	// Version information is only included for version 7 and up
 	if qr.version.number < 7 {
 		return
 	}
 
-	version_pattern := uint_to_modules(uint(qr.version.number), 18)
-	// FIXME: implement error correction
-	version_modules := version_pattern
+	version_data := uint(qr.version.number)
+
+	// 12 bits
+	golay_code := encodeGolay18_6(version_data)
+
+	// 18 bits
+	data := version_data<<12 + golay_code
+
+	version_modules := uint_to_modules(data, 18)
 
 	// 3 x 6 top right module block
 	// With 0 representing the least significant bit the placement must be as shown
@@ -352,8 +397,8 @@ func (qr *qr) version_information() {
 	// 12 13 14
 	// 15 16 17
 	var pos int
-	for i := range 6 {
-		for j := qr.size - 8 - 3; j < qr.size-8; j++ {
+	for i := 6 - 1; i >= 0; i-- {
+		for j := qr.size - 8 - 1; j >= qr.size-8-3; j-- {
 			qr.matrix[i][j] = version_modules[pos]
 			pos++
 		}
@@ -365,8 +410,8 @@ func (qr *qr) version_information() {
 	// 1  4  7 10 13 16
 	// 2  5  8 11 14 17
 	pos = 0
-	for j := range 6 {
-		for i := qr.size - 8 - 3; i < qr.size-8; i++ {
+	for j := 6 - 1; j >= 0; j-- {
+		for i := qr.size - 8 - 1; i >= qr.size-8-3; i-- {
 			qr.matrix[i][j] = version_modules[pos]
 			pos++
 		}
