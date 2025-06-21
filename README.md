@@ -22,7 +22,7 @@ Standard evolution:
 - ISO/IEC 18004:2015
 - ISO/IEC 18004:2024
 
-## Versions
+## Versions (QR code model 2)
 
 ### QR Code
 
@@ -88,7 +88,20 @@ The third to fifth data bits contain the data mask pattern (000 to 111 bits). Ma
 
 The 15-bit error corrected format information must then be XORed with the mask pattern 1010 1000 0010 010 to ensure a non all-zero data string.
 
+```
+format_bits = <err_correction_bits><mask_pattern_bits><bch_bits> ^ format_mask
+```
+
 The resulting bit sequence is mapped twice into the QR code, in the corresponding areas reserved in column and row 9. The module (4*V + 9, 8) where V is the version number shall always be a dark module and is not part of the format information.
+
+#### BCH Codes
+
+| n | k | t | Generator polynomial |
+| - | - | - | -------------------- |
+| 7 | 4 | 1 | 1 011 |
+| 15 | 11 | 1 | 10 011 |
+| 15 | 7 | 2 | 111 010 001 |
+| 15 | 5 | 3 | 10 100 110 111 |
 
 ### Version information
 
@@ -197,4 +210,3 @@ c. Evaluate all the resulting converted patterns by charging penalties for undes
 conversion result.
 
 d. Select the pattern with the lowest penalty points score.
-
