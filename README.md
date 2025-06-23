@@ -22,6 +22,32 @@ Standard evolution:
 - ISO/IEC 18004:2015
 - ISO/IEC 18004:2024
 
+## Definitions
+
+1. ***encoding region***
+
+region of the symbol not occupied by *function patterns* and available for encoding data and error
+correction codewords, and for *version* and *format information*
+
+2. ***function patterns***
+
+overhead component of the symbol (finder, separator, timing patterns and alignment patterns)
+required for location of the symbol or identification of its characteristics to assist in decoding
+
+3. ***version***
+
+size of the symbol represented in terms of its position in the sequence of permissible sizes
+
+4. ***format information***
+
+encoded pattern containing information on symbol characteristics essential to enable the remainder of the
+*encoding region* to be decoded
+
+5. ***remainder codeword***
+
+pad codeword, placed after the error correction codewords, used to fill empty codeword positions to
+complete the symbol
+
 ## Versions (QR code model 2)
 
 ### QR Code
@@ -105,7 +131,7 @@ The resulting bit sequence is mapped twice into the QR code, in the correspondin
 
 ### Version information
 
-Version information is included in QR Code version 7 or higher only. It consists of am 18-bit sequence containing 6 data bits with 12 error correction bits calculated using the (18, 6) Golay code. No version information will result in an all-zero data string since only versions 7 to 40 contain version information. Masking is not applied to version information (but global data masking is).
+Version information is included in QR Code version 7 or higher only. It consists of am 18-bit sequence containing 6 data bits with 12 error correction bits calculated using the (18, 6) Golay code. No version information will result in an all-zero data string since only versions 7 to 40 contain version information. Masking is not applied to version information since this block is only present in QR code versions >= 7 (but global data masking is).
 
 The resulting bis sequence is mapped twice in the QR Code, into the areas reserved for it in the 6 x 3 module block above the timing pattern and immediately to the left or the top right finder pattern separator, and the 3 x 6 module block to the left of the timing pattern and immediately above the lower left finder pattern separator.
 

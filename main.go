@@ -13,15 +13,17 @@ const Black = `■` // \u25A0
 const White = `□` // \u25A1
 const undef = `▿` // \u25BF or \u25AA or \u25AB
 
+// qr definition and temporary data structures
 type qr struct {
-	matrix  [][]module
-	version qrversion
-	format  qrformat
-	size    int
+	matrix           [][]module
+	version          QRVersion
+	error_corr_level errcorr
+	size             int
+	data             []byte
 }
 
-func (qr *qr) init() {
-	// Functions patterns
+func (qr *qr) generate() {
+	// Functions patterns. This sections DO NOT encode data.
 	qr.finder_patterns()
 	qr.separators()
 	qr.timing_patterns()
@@ -30,11 +32,12 @@ func (qr *qr) init() {
 	// Encoding region
 	qr.format_information()
 	qr.version_information()
-	qr.data()
+	qr.data_and_error_correction()
 
 	// TODO: Add quiet zone
 }
 
+// places finder pattern modules
 func (qr *qr) finder_patterns() {
 	// upper left corner
 	for i := range 7 { // size 7
@@ -88,6 +91,7 @@ func (qr *qr) finder_patterns() {
 	}
 }
 
+// places separator modules
 func (qr *qr) separators() {
 	// upper left
 	for i := range 8 {
@@ -114,6 +118,7 @@ func (qr *qr) separators() {
 	}
 }
 
+// places timing pattern modules
 func (qr *qr) timing_patterns() {
 	// row 6
 	alternating_flag := false
@@ -138,6 +143,7 @@ func (qr *qr) timing_patterns() {
 	}
 }
 
+// places alignment patter modules
 func (qr *qr) alignment_patterns() {
 	coords := get_alignment_patterns_for_version(qr.version.number)
 	for _, alignment_pos := range coords {
@@ -171,6 +177,7 @@ func (qr *qr) alignment_patterns() {
 	}
 }
 
+// places an alignment pattern module (5x5) in the given position
 func (qr *qr) add_alignment_pattern_module(row int, col int) {
 	// 5 by 5 dark square
 	for i := row - 2; i <= row+2; i++ {
@@ -189,6 +196,9 @@ func (qr *qr) add_alignment_pattern_module(row int, col int) {
 	qr.matrix[row][col] = module{bit: One}
 }
 
+// Converts a unit to a character sequence of ones and zeros
+// `targetSize` controls left padding (cannot be smaller than the
+// number of bits needed to represet `num`), if zero no padding is added
 func uint_to_string(num uint, targetSize int) string {
 	res := strings.Builder{}
 	// The number of bits needed to represent 'num'
@@ -196,9 +206,13 @@ func uint_to_string(num uint, targetSize int) string {
 
 	// Adjust for desired size
 	var padding string
-	if targetSize > 0 && targetSize > numBits {
-		for range targetSize - numBits {
-			padding = fmt.Sprintf("0%s", padding)
+	if targetSize > 0 {
+		if targetSize >= numBits {
+			for range targetSize - numBits {
+				padding = fmt.Sprintf("0%s", padding)
+			}
+		} else {
+			panic("cannot write uint to desired size")
 		}
 	}
 
@@ -217,6 +231,9 @@ func uint_to_string(num uint, targetSize int) string {
 	return res.String()
 }
 
+// Converts a unit to a slice od modules. `targetSize` controls
+// left padding (cannot be smaller than the number of bits needed to represet `num`)
+// if zero, no padding is added
 func uint_to_modules(num uint, targetSize int) []module {
 	var res []module
 
@@ -235,26 +252,23 @@ func uint_to_modules(num uint, targetSize int) []module {
 
 	// Adjust for desired size
 	var padding []module
-	if targetSize > 0 && targetSize > numBits {
-		padding = make([]module, targetSize-numBits)
-		for i := range padding {
-			padding[i] = module{bit: Zero}
+	if targetSize > 0 {
+		if targetSize >= numBits {
+			padding = make([]module, targetSize-numBits)
+			for i := range padding {
+				padding[i] = module{bit: Zero}
+			}
+		} else {
+			panic("cannot write uint to desired module length")
 		}
 	}
 	return append(padding, res...)
 }
 
-func print_module_slice(mods []module) {
-	b := strings.Builder{}
-	for _, m := range mods {
-		b.WriteString(m.Char())
-	}
-	fmt.Println(b.String())
-}
-
+// place format information modules
 func (qr *qr) format_information() {
 	// 2 bits
-	err_corr_level := get_error_correction_for_level(qr.version.error_corr_level)
+	err_corr_level := get_error_correction_for_level(qr.error_corr_level)
 
 	// 3 bits
 	// FIXME: Try all and select the correct mask pattern (hardcoding 101 for now)
@@ -295,7 +309,7 @@ func (qr *qr) format_information() {
 	qr.matrix[4*qr.version.number+9][8] = module{bit: One}
 }
 
-// Thank you Gemini 😉
+// encodes `data` to BCH(15,5). Thank you Gemini 😉
 func encodeBCH15_5(data uint) uint {
 	const n = 15
 	const k = 5
@@ -334,6 +348,7 @@ func encodeBCH15_5(data uint) uint {
 	return remainder & ((1 << numParityBits) - 1)
 }
 
+// encodes `data` to Golay(18,6) equivalent to BCH(18,6). Thank you Gemini 😉
 func encodeGolay18_6(data uint) uint {
 	const n = 18
 	const k = 6
@@ -372,6 +387,7 @@ func encodeGolay18_6(data uint) uint {
 	return remainder & ((1 << numParityBits) - 1)
 }
 
+// places version information modules
 func (qr *qr) version_information() {
 	// Version information is only included for version 7 and up
 	if qr.version.number < 7 {
@@ -418,37 +434,116 @@ func (qr *qr) version_information() {
 	}
 }
 
-func (qr *qr) data() {
+func (qr *qr) data_and_error_correction() {
 
 }
 
-func NewQRCode(version int, error_correction_level string, data string) *qr {
-	is_micro := false
-	size := 21 + (version-1)*4
+// Append or concatenate two uints (effectively left shifts)
+func uint_append(first, second uint) uint {
+	return first<<bits.Len(uint(second)) + second
+}
+
+// Calculates character count of given input data in the
+// corresponding data mode
+func character_count(mode QRMode, version QRVersion, input string) bit_seq {
+	switch mode {
+	case NumericMode:
+		return character_count_numeric(version, mode, input)
+	default:
+		panic("character_count: data mode not implemented!")
+	}
+}
+
+func character_count_numeric(version QRVersion, mode QRMode, input string) bit_seq {
+	bs, _ := NewBitSeqWithSize(uint(len(input)), GetCharCountLength(version, mode))
+	return bs
+}
+
+func encode(mode QRMode, input string) bit_seq {
+	switch mode {
+	case NumericMode:
+		return encode_numeric(input)
+	default:
+		panic("encode: data mode not implemented!")
+	}
+}
+
+func encode_numeric(input string) bit_seq {
+	var output bit_seq
+	var prev int
+
+	for prev < len(input) {
+		if len(input) == prev+1 { // Encode in 4 bits
+			group := input[prev : prev+1]
+			group_uint64, err := strconv.ParseUint(group, 10, 4)
+			if err != nil {
+				panic(err)
+			}
+			b, _ := NewBitSeqWithSize(uint(group_uint64), 4)
+			output = Concat(output, b)
+			prev = prev + 1
+		} else if len(input) == prev+2 { // Encode in 7 bits
+			group := input[prev : prev+2]
+			group_uint64, err := strconv.ParseUint(group, 10, 7)
+			if err != nil {
+				panic(err)
+			}
+			b, _ := NewBitSeqWithSize(uint(group_uint64), 7)
+			output = Concat(output, b)
+			prev = prev + 2
+		} else if len(input) >= prev+3 { // Encode in 10 bits
+			group := input[prev : prev+3]
+			group_uint64, err := strconv.ParseUint(group, 10, 10)
+			if err != nil {
+				panic(err)
+			}
+			b, _ := NewBitSeqWithSize(uint(group_uint64), 10)
+			output = Concat(output, b)
+			prev = prev + 3
+		}
+
+	}
+	return output
+}
+
+func NewQRCode(want_version int, error_correction_level string, input string) *qr {
+	// TODO: Determine best mode from input data
+	mode := NumericMode
+
+	// Encode data
+	data := encode(mode, input)
+
+	// TODO: Determine version from encoded data length
+	version := QRVersion{
+		format: QR_FORMAT_QR,
+		number: want_version,
+	}
+
+	character_count := character_count(mode, version, input)
+	output := ConcatMany(GetModeIndicatorBits(version, mode), character_count, data)
+	print_bit_seq(output)
+
+	// NOTE: hasta acá va bien el ejemplo ======
+
+	// Calculate error correction codewords
+	size := 21 + (want_version-1)*4
 	matrix := make([][]module, size)
 	for i := range size {
 		matrix[i] = make([]module, size)
 	}
 	qr := &qr{
 		matrix: matrix,
-		version: qrversion{
-			number:           version,
-			error_corr_level: errcorr(error_correction_level),
+		version: QRVersion{
+			format: QR_FORMAT_QR,
+			number: want_version,
 		},
-		format: QR_FORMAT_QR,
-		size:   size,
+		error_corr_level: errcorr(error_correction_level),
+		size:             size,
+		data:             []byte(input),
 	}
-	if is_micro {
-		qr.format = QR_FORMAT_MICRO_QR
-	}
-	qr.init()
+	qr.generate()
 	return qr
 }
-
-type qrformat string
-
-const QR_FORMAT_QR = "full"
-const QR_FORMAT_MICRO_QR = "micro"
 
 type errcorr string
 
@@ -457,17 +552,8 @@ const ERR_CORR_M = "M"
 const ERR_CORR_Q = "Q"
 const ERR_CORR_H = "H"
 
-type qrversion struct {
-	error_corr_level errcorr
-	number           int
-}
-
-func (qr *qr) Version() string {
-	var format string
-	if qr.format == QR_FORMAT_MICRO_QR {
-		format = "M"
-	}
-	return fmt.Sprintf("%s%d-%s", format, qr.version.number, qr.version.error_corr_level)
+func (qr *qr) FullVersion() string {
+	return fmt.Sprintf("%s-%s", qr.version.String(), qr.error_corr_level)
 }
 
 type Bit uint
@@ -504,7 +590,7 @@ func (m *module) Char() string {
 
 func (qr *qr) String() string {
 	b := strings.Builder{}
-	b.WriteString(fmt.Sprintf("QR version %s (size %d)", qr.Version(), qr.size))
+	b.WriteString(fmt.Sprintf("QR version %s (size %d)", qr.FullVersion(), qr.size))
 
 	return b.String()
 }
@@ -553,7 +639,7 @@ func main() {
 	}
 
 	// Data
-	data := "hello world!"
+	data := "01234567"
 	if len(args) > 2 {
 		data = args[2]
 	}

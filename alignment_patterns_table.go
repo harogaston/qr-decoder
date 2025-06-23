@@ -30,7 +30,6 @@ var (
 		{6, 30, 58, 86, 114},
 		{6, 34, 62, 90, 118},
 		{6, 26, 50, 74, 98, 122}, // version 28
-		// FIXME: Add remaining coordinates
 	}
 )
 
