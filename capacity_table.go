@@ -1,0 +1,1321 @@
+package main
+
+// BlockGroup represents a group of blocks with the same characteristics
+type BlockGroup struct {
+	NumBlocks      int
+	TotalCodewords int
+	DataCodewords  int
+}
+
+// ECInfo stores error correction information for a specific level
+type ECInfo struct {
+	ECCodewordsPerBlock int
+	BlockGroups         []BlockGroup
+}
+
+var capacityData = map[int]struct {
+	totalCodewords int
+	ecInfo         map[errcorr]ECInfo
+}{
+	1: {
+		totalCodewords: 26,
+		ecInfo: map[errcorr]ECInfo{
+			ERR_CORR_L: {
+				ECCodewordsPerBlock: 7,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 1, TotalCodewords: 26, DataCodewords: 19},
+				},
+			},
+			ERR_CORR_M: {
+				ECCodewordsPerBlock: 10,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 1, TotalCodewords: 26, DataCodewords: 16},
+				},
+			},
+			ERR_CORR_Q: {
+				ECCodewordsPerBlock: 13,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 1, TotalCodewords: 26, DataCodewords: 13},
+				},
+			},
+			ERR_CORR_H: {
+				ECCodewordsPerBlock: 17,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 1, TotalCodewords: 26, DataCodewords: 9},
+				},
+			},
+		},
+	},
+	2: {
+		totalCodewords: 44,
+		ecInfo: map[errcorr]ECInfo{
+			ERR_CORR_L: {
+				ECCodewordsPerBlock: 10,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 1, TotalCodewords: 44, DataCodewords: 34},
+				},
+			},
+			ERR_CORR_M: {
+				ECCodewordsPerBlock: 16,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 1, TotalCodewords: 44, DataCodewords: 28},
+				},
+			},
+			ERR_CORR_Q: {
+				ECCodewordsPerBlock: 22,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 1, TotalCodewords: 44, DataCodewords: 22},
+				},
+			},
+			ERR_CORR_H: {
+				ECCodewordsPerBlock: 28,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 1, TotalCodewords: 44, DataCodewords: 16},
+				},
+			},
+		},
+	},
+	3: {
+		totalCodewords: 70,
+		ecInfo: map[errcorr]ECInfo{
+			ERR_CORR_L: {
+				ECCodewordsPerBlock: 15,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 1, TotalCodewords: 70, DataCodewords: 55},
+				},
+			},
+			ERR_CORR_M: {
+				ECCodewordsPerBlock: 10,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 1, TotalCodewords: 44, DataCodewords: 34},
+					{NumBlocks: 1, TotalCodewords: 26, DataCodewords: 16},
+				},
+			},
+			ERR_CORR_Q: {
+				ECCodewordsPerBlock: 26,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 1, TotalCodewords: 70, DataCodewords: 44},
+				},
+			},
+			ERR_CORR_H: {
+				ECCodewordsPerBlock: 18,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 2, TotalCodewords: 35, DataCodewords: 17},
+				},
+			},
+		},
+	},
+	4: {
+		totalCodewords: 100,
+		ecInfo: map[errcorr]ECInfo{
+			ERR_CORR_L: {
+				ECCodewordsPerBlock: 20,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 1, TotalCodewords: 100, DataCodewords: 80},
+				},
+			},
+			ERR_CORR_M: {
+				ECCodewordsPerBlock: 18,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 2, TotalCodewords: 50, DataCodewords: 32},
+				},
+			},
+			ERR_CORR_Q: {
+				ECCodewordsPerBlock: 26,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 2, TotalCodewords: 50, DataCodewords: 24},
+				},
+			},
+			ERR_CORR_H: {
+				ECCodewordsPerBlock: 30,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 1, TotalCodewords: 53, DataCodewords: 23},
+					{NumBlocks: 1, TotalCodewords: 47, DataCodewords: 17},
+				},
+			},
+		},
+	},
+	5: {
+		totalCodewords: 134,
+		ecInfo: map[errcorr]ECInfo{
+			ERR_CORR_L: {
+				ECCodewordsPerBlock: 26,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 1, TotalCodewords: 134, DataCodewords: 108},
+				},
+			},
+			ERR_CORR_M: {
+				ECCodewordsPerBlock: 24,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 2, TotalCodewords: 67, DataCodewords: 43},
+				},
+			},
+			ERR_CORR_Q: {
+				ECCodewordsPerBlock: 18,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 2, TotalCodewords: 35, DataCodewords: 17},
+					{NumBlocks: 2, TotalCodewords: 32, DataCodewords: 14},
+				},
+			},
+			ERR_CORR_H: {
+				ECCodewordsPerBlock: 28,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 1, TotalCodewords: 50, DataCodewords: 22},
+					{NumBlocks: 2, TotalCodewords: 42, DataCodewords: 14},
+				},
+			},
+		},
+	},
+	6: {
+		totalCodewords: 172,
+		ecInfo: map[errcorr]ECInfo{
+			ERR_CORR_L: {
+				ECCodewordsPerBlock: 18,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 2, TotalCodewords: 86, DataCodewords: 68},
+				},
+			},
+			ERR_CORR_M: {
+				ECCodewordsPerBlock: 16,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 4, TotalCodewords: 43, DataCodewords: 27},
+				},
+			},
+			ERR_CORR_Q: {
+				ECCodewordsPerBlock: 24,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 4, TotalCodewords: 43, DataCodewords: 19},
+				},
+			},
+			ERR_CORR_H: {
+				ECCodewordsPerBlock: 28,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 4, TotalCodewords: 43, DataCodewords: 15},
+				},
+			},
+		},
+	},
+	7: {
+		totalCodewords: 196,
+		ecInfo: map[errcorr]ECInfo{
+			ERR_CORR_L: {
+				ECCodewordsPerBlock: 20,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 2, TotalCodewords: 98, DataCodewords: 78},
+				},
+			},
+			ERR_CORR_M: {
+				ECCodewordsPerBlock: 18,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 4, TotalCodewords: 49, DataCodewords: 31},
+				},
+			},
+			ERR_CORR_Q: {
+				ECCodewordsPerBlock: 18,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 4, TotalCodewords: 33, DataCodewords: 15},
+					{NumBlocks: 2, TotalCodewords: 32, DataCodewords: 14},
+				},
+			},
+			ERR_CORR_H: {
+				ECCodewordsPerBlock: 22,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 1, TotalCodewords: 60, DataCodewords: 38},
+					{NumBlocks: 4, TotalCodewords: 34, DataCodewords: 12},
+				},
+			},
+		},
+	},
+	8: {
+		totalCodewords: 242,
+		ecInfo: map[errcorr]ECInfo{
+			ERR_CORR_L: {
+				ECCodewordsPerBlock: 24,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 2, TotalCodewords: 121, DataCodewords: 97},
+				},
+			},
+			ERR_CORR_M: {
+				ECCodewordsPerBlock: 18,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 2, TotalCodewords: 86, DataCodewords: 68},
+					{NumBlocks: 2, TotalCodewords: 35, DataCodewords: 17},
+				},
+			},
+			ERR_CORR_Q: {
+				ECCodewordsPerBlock: 22,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 2, TotalCodewords: 61, DataCodewords: 39},
+					{NumBlocks: 2, TotalCodewords: 60, DataCodewords: 38},
+				},
+			},
+			ERR_CORR_H: {
+				ECCodewordsPerBlock: 22,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 3, TotalCodewords: 58, DataCodewords: 36},
+					{NumBlocks: 2, TotalCodewords: 34, DataCodewords: 12},
+				},
+			},
+		},
+	},
+	9: {
+		totalCodewords: 292,
+		ecInfo: map[errcorr]ECInfo{
+			ERR_CORR_L: {
+				ECCodewordsPerBlock: 30,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 2, TotalCodewords: 146, DataCodewords: 116},
+				},
+			},
+			ERR_CORR_M: {
+				ECCodewordsPerBlock: 22,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 2, TotalCodewords: 59, DataCodewords: 37},
+					{NumBlocks: 3, TotalCodewords: 58, DataCodewords: 36},
+				},
+			},
+			ERR_CORR_Q: {
+				ECCodewordsPerBlock: 26,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 3, TotalCodewords: 70, DataCodewords: 44},
+					{NumBlocks: 2, TotalCodewords: 41, DataCodewords: 15},
+				},
+			},
+			ERR_CORR_H: {
+				ECCodewordsPerBlock: 26,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 2, TotalCodewords: 50, DataCodewords: 24},
+					{NumBlocks: 4, TotalCodewords: 48, DataCodewords: 22},
+				},
+			},
+		},
+	},
+	10: {
+		totalCodewords: 346,
+		ecInfo: map[errcorr]ECInfo{
+			ERR_CORR_L: {
+				ECCodewordsPerBlock: 18,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 2, TotalCodewords: 87, DataCodewords: 69},
+					{NumBlocks: 2, TotalCodewords: 86, DataCodewords: 68},
+				},
+			},
+			ERR_CORR_M: {
+				ECCodewordsPerBlock: 26,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 1, TotalCodewords: 70, DataCodewords: 44},
+					{NumBlocks: 4, TotalCodewords: 69, DataCodewords: 43},
+				},
+			},
+			ERR_CORR_Q: {
+				ECCodewordsPerBlock: 24,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 2, TotalCodewords: 44, DataCodewords: 20},
+					{NumBlocks: 6, TotalCodewords: 43, DataCodewords: 19},
+				},
+			},
+			ERR_CORR_H: {
+				ECCodewordsPerBlock: 28,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 2, TotalCodewords: 44, DataCodewords: 16},
+					{NumBlocks: 6, TotalCodewords: 43, DataCodewords: 15},
+				},
+			},
+		},
+	},
+	11: {
+		totalCodewords: 404,
+		ecInfo: map[errcorr]ECInfo{
+			ERR_CORR_L: {
+				ECCodewordsPerBlock: 20,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 4, TotalCodewords: 101, DataCodewords: 81},
+				},
+			},
+			ERR_CORR_M: {
+				ECCodewordsPerBlock: 24,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 2, TotalCodewords: 116, DataCodewords: 92},
+					{NumBlocks: 4, TotalCodewords: 43, DataCodewords: 19},
+				},
+			},
+			ERR_CORR_Q: {
+				ECCodewordsPerBlock: 30,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 4, TotalCodewords: 81, DataCodewords: 51},
+					{NumBlocks: 1, TotalCodewords: 80, DataCodewords: 50},
+				},
+			},
+			ERR_CORR_H: {
+				ECCodewordsPerBlock: 24,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 4, TotalCodewords: 64, DataCodewords: 40},
+					{NumBlocks: 4, TotalCodewords: 37, DataCodewords: 13},
+				},
+			},
+		},
+	},
+	12: {
+		totalCodewords: 466,
+		ecInfo: map[errcorr]ECInfo{
+			ERR_CORR_L: {
+				ECCodewordsPerBlock: 24,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 2, TotalCodewords: 117, DataCodewords: 93},
+					{NumBlocks: 2, TotalCodewords: 116, DataCodewords: 92},
+				},
+			},
+			ERR_CORR_M: {
+				ECCodewordsPerBlock: 22,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 2, TotalCodewords: 59, DataCodewords: 37},
+					{NumBlocks: 6, TotalCodewords: 58, DataCodewords: 36},
+				},
+			},
+			ERR_CORR_Q: {
+				ECCodewordsPerBlock: 26,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 6, TotalCodewords: 47, DataCodewords: 21},
+					{NumBlocks: 4, TotalCodewords: 46, DataCodewords: 20},
+				},
+			},
+			ERR_CORR_H: {
+				ECCodewordsPerBlock: 22,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 2, TotalCodewords: 35, DataCodewords: 13},
+					{NumBlocks: 12, TotalCodewords: 33, DataCodewords: 11},
+				},
+			},
+		},
+	},
+	13: {
+		totalCodewords: 532,
+		ecInfo: map[errcorr]ECInfo{
+			ERR_CORR_L: {
+				ECCodewordsPerBlock: 26,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 4, TotalCodewords: 133, DataCodewords: 107},
+				},
+			},
+			ERR_CORR_M: {
+				ECCodewordsPerBlock: 30,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 3, TotalCodewords: 146, DataCodewords: 116},
+					{NumBlocks: 2, TotalCodewords: 47, DataCodewords: 17},
+				},
+			},
+			ERR_CORR_Q: {
+				ECCodewordsPerBlock: 28,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 7, TotalCodewords: 76, DataCodewords: 48},
+				},
+			},
+			ERR_CORR_H: {
+				ECCodewordsPerBlock: 22,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 1, TotalCodewords: 60, DataCodewords: 38},
+					{NumBlocks: 8, TotalCodewords: 59, DataCodewords: 37},
+				},
+			},
+		},
+	},
+	14: {
+		totalCodewords: 581,
+		ecInfo: map[errcorr]ECInfo{
+			ERR_CORR_L: {
+				ECCodewordsPerBlock: 30,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 1, TotalCodewords: 146, DataCodewords: 116},
+					{NumBlocks: 3, TotalCodewords: 145, DataCodewords: 115},
+				},
+			},
+			ERR_CORR_M: {
+				ECCodewordsPerBlock: 24,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 5, TotalCodewords: 65, DataCodewords: 41},
+					{NumBlocks: 4, TotalCodewords: 64, DataCodewords: 40},
+				},
+			},
+			ERR_CORR_Q: {
+				ECCodewordsPerBlock: 20,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 5, TotalCodewords: 37, DataCodewords: 17},
+					{NumBlocks: 11, TotalCodewords: 36, DataCodewords: 16},
+				},
+			},
+			ERR_CORR_H: {
+				ECCodewordsPerBlock: 24,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 5, TotalCodewords: 37, DataCodewords: 13},
+					{NumBlocks: 11, TotalCodewords: 36, DataCodewords: 12},
+				},
+			},
+		},
+	},
+	15: {
+		totalCodewords: 655,
+		ecInfo: map[errcorr]ECInfo{
+			ERR_CORR_L: {
+				ECCodewordsPerBlock: 22,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 1, TotalCodewords: 110, DataCodewords: 88},
+					{NumBlocks: 5, TotalCodewords: 109, DataCodewords: 87},
+				},
+			},
+			ERR_CORR_M: {
+				ECCodewordsPerBlock: 28,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 4, TotalCodewords: 145, DataCodewords: 117},
+					{NumBlocks: 1, TotalCodewords: 75, DataCodewords: 47},
+				},
+			},
+			ERR_CORR_Q: {
+				ECCodewordsPerBlock: 30,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 4, TotalCodewords: 152, DataCodewords: 122},
+					{NumBlocks: 1, TotalCodewords: 47, DataCodewords: 17},
+				},
+			},
+			ERR_CORR_H: {
+				ECCodewordsPerBlock: 24,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 5, TotalCodewords: 66, DataCodewords: 42},
+					{NumBlocks: 5, TotalCodewords: 65, DataCodewords: 41},
+				},
+			},
+		},
+	},
+	16: {
+		totalCodewords: 733,
+		ecInfo: map[errcorr]ECInfo{
+			ERR_CORR_L: {
+				ECCodewordsPerBlock: 24,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 1, TotalCodewords: 123, DataCodewords: 99},
+					{NumBlocks: 5, TotalCodewords: 122, DataCodewords: 98},
+				},
+			},
+			ERR_CORR_M: {
+				ECCodewordsPerBlock: 30,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 3, TotalCodewords: 147, DataCodewords: 117},
+					{NumBlocks: 2, TotalCodewords: 146, DataCodewords: 116},
+				},
+			},
+			ERR_CORR_Q: {
+				ECCodewordsPerBlock: 26,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 4, TotalCodewords: 133, DataCodewords: 107},
+					{NumBlocks: 3, TotalCodewords: 67, DataCodewords: 41},
+				},
+			},
+			ERR_CORR_H: {
+				ECCodewordsPerBlock: 28,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 3, TotalCodewords: 74, DataCodewords: 46},
+					{NumBlocks: 7, TotalCodewords: 73, DataCodewords: 45},
+				},
+			},
+		},
+	},
+	17: {
+		totalCodewords: 815,
+		ecInfo: map[errcorr]ECInfo{
+			ERR_CORR_L: {
+				ECCodewordsPerBlock: 28,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 5, TotalCodewords: 136, DataCodewords: 108},
+					{NumBlocks: 1, TotalCodewords: 135, DataCodewords: 107},
+				},
+			},
+			ERR_CORR_M: {
+				ECCodewordsPerBlock: 30,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 5, TotalCodewords: 152, DataCodewords: 122},
+					{NumBlocks: 1, TotalCodewords: 55, DataCodewords: 25},
+				},
+			},
+			ERR_CORR_Q: {
+				ECCodewordsPerBlock: 30,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 5, TotalCodewords: 145, DataCodewords: 115},
+					{NumBlocks: 2, TotalCodewords: 45, DataCodewords: 15},
+				},
+			},
+			ERR_CORR_H: {
+				ECCodewordsPerBlock: 28,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 1, TotalCodewords: 75, DataCodewords: 47},
+					{NumBlocks: 10, TotalCodewords: 74, DataCodewords: 46},
+				},
+			},
+		},
+	},
+	18: {
+		totalCodewords: 901,
+		ecInfo: map[errcorr]ECInfo{
+			ERR_CORR_L: {
+				ECCodewordsPerBlock: 30,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 1, TotalCodewords: 151, DataCodewords: 121},
+					{NumBlocks: 5, TotalCodewords: 150, DataCodewords: 120},
+				},
+			},
+			ERR_CORR_M: {
+				ECCodewordsPerBlock: 26,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 4, TotalCodewords: 70, DataCodewords: 44},
+					{NumBlocks: 9, TotalCodewords: 69, DataCodewords: 43},
+				},
+			},
+			ERR_CORR_Q: {
+				ECCodewordsPerBlock: 24,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 4, TotalCodewords: 64, DataCodewords: 40},
+					{NumBlocks: 15, TotalCodewords: 43, DataCodewords: 19},
+				},
+			},
+			ERR_CORR_H: {
+				ECCodewordsPerBlock: 28,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 1, TotalCodewords: 51, DataCodewords: 23},
+					{NumBlocks: 17, TotalCodewords: 50, DataCodewords: 22},
+				},
+			},
+		},
+	},
+	19: {
+		totalCodewords: 991,
+		ecInfo: map[errcorr]ECInfo{
+			ERR_CORR_L: {
+				ECCodewordsPerBlock: 28,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 4, TotalCodewords: 142, DataCodewords: 114},
+					{NumBlocks: 3, TotalCodewords: 141, DataCodewords: 113},
+				},
+			},
+			ERR_CORR_M: {
+				ECCodewordsPerBlock: 26,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 11, TotalCodewords: 71, DataCodewords: 45},
+					{NumBlocks: 3, TotalCodewords: 70, DataCodewords: 44},
+				},
+			},
+			ERR_CORR_Q: {
+				ECCodewordsPerBlock: 30,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 3, TotalCodewords: 147, DataCodewords: 117},
+					{NumBlocks: 10, TotalCodewords: 55, DataCodewords: 25},
+				},
+			},
+			ERR_CORR_H: {
+				ECCodewordsPerBlock: 26,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 4, TotalCodewords: 48, DataCodewords: 22},
+					{NumBlocks: 17, TotalCodewords: 47, DataCodewords: 21},
+				},
+			},
+		},
+	},
+	20: {
+		totalCodewords: 1085,
+		ecInfo: map[errcorr]ECInfo{
+			ERR_CORR_L: {
+				ECCodewordsPerBlock: 28,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 5, TotalCodewords: 136, DataCodewords: 108},
+					{NumBlocks: 3, TotalCodewords: 135, DataCodewords: 107},
+				},
+			},
+			ERR_CORR_M: {
+				ECCodewordsPerBlock: 26,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 13, TotalCodewords: 68, DataCodewords: 42},
+					{NumBlocks: 3, TotalCodewords: 67, DataCodewords: 41},
+				},
+			},
+			ERR_CORR_Q: {
+				ECCodewordsPerBlock: 30,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 3, TotalCodewords: 147, DataCodewords: 117},
+					{NumBlocks: 14, TotalCodewords: 46, DataCodewords: 16},
+				},
+			},
+			ERR_CORR_H: {
+				ECCodewordsPerBlock: 30,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 5, TotalCodewords: 55, DataCodewords: 25},
+					{NumBlocks: 15, TotalCodewords: 54, DataCodewords: 24},
+				},
+			},
+		},
+	},
+	21: {
+		totalCodewords: 1156,
+		ecInfo: map[errcorr]ECInfo{
+			ERR_CORR_L: {
+				ECCodewordsPerBlock: 28,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 4, TotalCodewords: 145, DataCodewords: 117},
+					{NumBlocks: 4, TotalCodewords: 144, DataCodewords: 116},
+				},
+			},
+			ERR_CORR_M: {
+				ECCodewordsPerBlock: 26,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 8, TotalCodewords: 132, DataCodewords: 106},
+					{NumBlocks: 2, TotalCodewords: 50, DataCodewords: 24},
+				},
+			},
+			ERR_CORR_Q: {
+				ECCodewordsPerBlock: 26,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 17, TotalCodewords: 68, DataCodewords: 42},
+				},
+			},
+			ERR_CORR_H: {
+				ECCodewordsPerBlock: 28,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 7, TotalCodewords: 73, DataCodewords: 45},
+					{NumBlocks: 15, TotalCodewords: 43, DataCodewords: 15},
+				},
+			},
+		},
+	},
+	22: {
+		totalCodewords: 1258,
+		ecInfo: map[errcorr]ECInfo{
+			ERR_CORR_L: {
+				ECCodewordsPerBlock: 28,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 7, TotalCodewords: 140, DataCodewords: 112},
+					{NumBlocks: 2, TotalCodewords: 139, DataCodewords: 111},
+				},
+			},
+			ERR_CORR_M: {
+				ECCodewordsPerBlock: 28,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 17, TotalCodewords: 74, DataCodewords: 46},
+				},
+			},
+			ERR_CORR_Q: {
+				ECCodewordsPerBlock: 30,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 16, TotalCodewords: 55, DataCodewords: 25},
+					{NumBlocks: 7, TotalCodewords: 54, DataCodewords: 24},
+				},
+			},
+			ERR_CORR_H: {
+				ECCodewordsPerBlock: 24,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 34, TotalCodewords: 37, DataCodewords: 13},
+				},
+			},
+		},
+	},
+	23: {
+		totalCodewords: 1364,
+		ecInfo: map[errcorr]ECInfo{
+			ERR_CORR_L: {
+				ECCodewordsPerBlock: 30,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 5, TotalCodewords: 152, DataCodewords: 122},
+					{NumBlocks: 4, TotalCodewords: 151, DataCodewords: 121},
+				},
+			},
+			ERR_CORR_M: {
+				ECCodewordsPerBlock: 28,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 14, TotalCodewords: 76, DataCodewords: 48},
+					{NumBlocks: 4, TotalCodewords: 75, DataCodewords: 47},
+				},
+			},
+			ERR_CORR_Q: {
+				ECCodewordsPerBlock: 30,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 14, TotalCodewords: 55, DataCodewords: 25},
+					{NumBlocks: 11, TotalCodewords: 54, DataCodewords: 24},
+				},
+			},
+			ERR_CORR_H: {
+				ECCodewordsPerBlock: 30,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 14, TotalCodewords: 46, DataCodewords: 16},
+					{NumBlocks: 16, TotalCodewords: 45, DataCodewords: 15},
+				},
+			},
+		},
+	},
+	24: {
+		totalCodewords: 1474,
+		ecInfo: map[errcorr]ECInfo{
+			ERR_CORR_L: {
+				ECCodewordsPerBlock: 30,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 4, TotalCodewords: 148, DataCodewords: 118},
+					{NumBlocks: 6, TotalCodewords: 147, DataCodewords: 117},
+				},
+			},
+			ERR_CORR_M: {
+				ECCodewordsPerBlock: 28,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 14, TotalCodewords: 74, DataCodewords: 46},
+					{NumBlocks: 6, TotalCodewords: 73, DataCodewords: 45},
+				},
+			},
+			ERR_CORR_Q: {
+				ECCodewordsPerBlock: 30,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 6, TotalCodewords: 146, DataCodewords: 116},
+					{NumBlocks: 13, TotalCodewords: 46, DataCodewords: 16},
+				},
+			},
+			ERR_CORR_H: {
+				ECCodewordsPerBlock: 30,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 16, TotalCodewords: 55, DataCodewords: 25},
+					{NumBlocks: 11, TotalCodewords: 54, DataCodewords: 24},
+				},
+			},
+		},
+	},
+	25: {
+		totalCodewords: 1588,
+		ecInfo: map[errcorr]ECInfo{
+			ERR_CORR_L: {
+				ECCodewordsPerBlock: 26,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 4, TotalCodewords: 133, DataCodewords: 107},
+					{NumBlocks: 8, TotalCodewords: 132, DataCodewords: 106},
+				},
+			},
+			ERR_CORR_M: {
+				ECCodewordsPerBlock: 28,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 13, TotalCodewords: 76, DataCodewords: 48},
+					{NumBlocks: 8, TotalCodewords: 75, DataCodewords: 47},
+				},
+			},
+			ERR_CORR_Q: {
+				ECCodewordsPerBlock: 30,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 3, TotalCodewords: 146, DataCodewords: 116},
+					{NumBlocks: 25, TotalCodewords: 46, DataCodewords: 16},
+				},
+			},
+			ERR_CORR_H: {
+				ECCodewordsPerBlock: 30,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 22, TotalCodewords: 55, DataCodewords: 25},
+					{NumBlocks: 7, TotalCodewords: 54, DataCodewords: 24},
+				},
+			},
+		},
+	},
+	26: {
+		totalCodewords: 1706,
+		ecInfo: map[errcorr]ECInfo{
+			ERR_CORR_L: {
+				ECCodewordsPerBlock: 28,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 2, TotalCodewords: 143, DataCodewords: 115},
+					{NumBlocks: 10, TotalCodewords: 142, DataCodewords: 114},
+				},
+			},
+			ERR_CORR_M: {
+				ECCodewordsPerBlock: 28,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 4, TotalCodewords: 75, DataCodewords: 47},
+					{NumBlocks: 19, TotalCodewords: 74, DataCodewords: 46},
+				},
+			},
+			ERR_CORR_Q: {
+				ECCodewordsPerBlock: 28,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 6, TotalCodewords: 51, DataCodewords: 23},
+					{NumBlocks: 28, TotalCodewords: 50, DataCodewords: 22},
+				},
+			},
+			ERR_CORR_H: {
+				ECCodewordsPerBlock: 30,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 4, TotalCodewords: 47, DataCodewords: 17},
+					{NumBlocks: 33, TotalCodewords: 46, DataCodewords: 16},
+				},
+			},
+		},
+	},
+	27: {
+		totalCodewords: 1828,
+		ecInfo: map[errcorr]ECInfo{
+			ERR_CORR_L: {
+				ECCodewordsPerBlock: 30,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 4, TotalCodewords: 153, DataCodewords: 123},
+					{NumBlocks: 8, TotalCodewords: 152, DataCodewords: 122},
+				},
+			},
+			ERR_CORR_M: {
+				ECCodewordsPerBlock: 28,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 3, TotalCodewords: 74, DataCodewords: 46},
+					{NumBlocks: 22, TotalCodewords: 73, DataCodewords: 45},
+				},
+			},
+			ERR_CORR_Q: {
+				ECCodewordsPerBlock: 30,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 26, TotalCodewords: 54, DataCodewords: 24},
+					{NumBlocks: 8, TotalCodewords: 53, DataCodewords: 23},
+				},
+			},
+			ERR_CORR_H: {
+				ECCodewordsPerBlock: 30,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 10, TotalCodewords: 54, DataCodewords: 24},
+					{NumBlocks: 28, TotalCodewords: 46, DataCodewords: 16},
+				},
+			},
+		},
+	},
+	28: {
+		totalCodewords: 1921,
+		ecInfo: map[errcorr]ECInfo{
+			ERR_CORR_L: {
+				ECCodewordsPerBlock: 30,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 10, TotalCodewords: 148, DataCodewords: 118},
+					{NumBlocks: 3, TotalCodewords: 147, DataCodewords: 117},
+				},
+			},
+			ERR_CORR_M: {
+				ECCodewordsPerBlock: 28,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 23, TotalCodewords: 74, DataCodewords: 46},
+					{NumBlocks: 3, TotalCodewords: 73, DataCodewords: 45},
+				},
+			},
+			ERR_CORR_Q: {
+				ECCodewordsPerBlock: 30,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 6, TotalCodewords: 146, DataCodewords: 116},
+					{NumBlocks: 19, TotalCodewords: 55, DataCodewords: 25},
+				},
+			},
+			ERR_CORR_H: {
+				ECCodewordsPerBlock: 30,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 5, TotalCodewords: 145, DataCodewords: 115},
+					{NumBlocks: 26, TotalCodewords: 46, DataCodewords: 16},
+				},
+			},
+		},
+	},
+	29: {
+		totalCodewords: 2051,
+		ecInfo: map[errcorr]ECInfo{
+			ERR_CORR_L: {
+				ECCodewordsPerBlock: 30,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 7, TotalCodewords: 147, DataCodewords: 117},
+					{NumBlocks: 7, TotalCodewords: 146, DataCodewords: 116},
+				},
+			},
+			ERR_CORR_M: {
+				ECCodewordsPerBlock: 28,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 26, TotalCodewords: 76, DataCodewords: 48},
+					{NumBlocks: 1, TotalCodewords: 75, DataCodewords: 47},
+				},
+			},
+			ERR_CORR_Q: {
+				ECCodewordsPerBlock: 28,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 7, TotalCodewords: 74, DataCodewords: 46},
+					{NumBlocks: 21, TotalCodewords: 73, DataCodewords: 45},
+				},
+			},
+			ERR_CORR_H: {
+				ECCodewordsPerBlock: 28,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 19, TotalCodewords: 74, DataCodewords: 46},
+					{NumBlocks: 15, TotalCodewords: 43, DataCodewords: 15},
+				},
+			},
+		},
+	},
+	30: {
+		totalCodewords: 2185,
+		ecInfo: map[errcorr]ECInfo{
+			ERR_CORR_L: {
+				ECCodewordsPerBlock: 30,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 10, TotalCodewords: 146, DataCodewords: 116},
+					{NumBlocks: 5, TotalCodewords: 145, DataCodewords: 115},
+				},
+			},
+			ERR_CORR_M: {
+				ECCodewordsPerBlock: 28,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 10, TotalCodewords: 142, DataCodewords: 114},
+					{NumBlocks: 15, TotalCodewords: 51, DataCodewords: 23},
+				},
+			},
+			ERR_CORR_Q: {
+				ECCodewordsPerBlock: 28,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 10, TotalCodewords: 76, DataCodewords: 48},
+					{NumBlocks: 19, TotalCodewords: 75, DataCodewords: 47},
+				},
+			},
+			ERR_CORR_H: {
+				ECCodewordsPerBlock: 30,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 25, TotalCodewords: 55, DataCodewords: 25},
+					{NumBlocks: 15, TotalCodewords: 54, DataCodewords: 24},
+				},
+			},
+		},
+	},
+	31: {
+		totalCodewords: 2323,
+		ecInfo: map[errcorr]ECInfo{
+			ERR_CORR_L: {
+				ECCodewordsPerBlock: 30,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 3, TotalCodewords: 146, DataCodewords: 116},
+					{NumBlocks: 13, TotalCodewords: 145, DataCodewords: 115},
+				},
+			},
+			ERR_CORR_M: {
+				ECCodewordsPerBlock: 28,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 29, TotalCodewords: 75, DataCodewords: 47},
+					{NumBlocks: 2, TotalCodewords: 74, DataCodewords: 46},
+				},
+			},
+			ERR_CORR_Q: {
+				ECCodewordsPerBlock: 30,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 1, TotalCodewords: 55, DataCodewords: 25},
+					{NumBlocks: 42, TotalCodewords: 54, DataCodewords: 24},
+				},
+			},
+			ERR_CORR_H: {
+				ECCodewordsPerBlock: 30,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 28, TotalCodewords: 46, DataCodewords: 16},
+					{NumBlocks: 23, TotalCodewords: 45, DataCodewords: 15},
+				},
+			},
+		},
+	},
+	32: {
+		totalCodewords: 2465,
+		ecInfo: map[errcorr]ECInfo{
+			ERR_CORR_L: {
+				ECCodewordsPerBlock: 30,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 17, TotalCodewords: 145, DataCodewords: 115},
+				},
+			},
+			ERR_CORR_M: {
+				ECCodewordsPerBlock: 28,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 23, TotalCodewords: 75, DataCodewords: 47},
+					{NumBlocks: 10, TotalCodewords: 74, DataCodewords: 46},
+				},
+			},
+			ERR_CORR_Q: {
+				ECCodewordsPerBlock: 30,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 5, TotalCodewords: 152, DataCodewords: 122},
+					{NumBlocks: 31, TotalCodewords: 55, DataCodewords: 25},
+				},
+			},
+			ERR_CORR_H: {
+				ECCodewordsPerBlock: 30,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 35, TotalCodewords: 55, DataCodewords: 25},
+					{NumBlocks: 10, TotalCodewords: 54, DataCodewords: 24},
+				},
+			},
+		},
+	},
+	33: {
+		totalCodewords: 2611,
+		ecInfo: map[errcorr]ECInfo{
+			ERR_CORR_L: {
+				ECCodewordsPerBlock: 30,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 1, TotalCodewords: 146, DataCodewords: 116},
+					{NumBlocks: 17, TotalCodewords: 145, DataCodewords: 115},
+				},
+			},
+			ERR_CORR_M: {
+				ECCodewordsPerBlock: 28,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 21, TotalCodewords: 75, DataCodewords: 47},
+					{NumBlocks: 14, TotalCodewords: 74, DataCodewords: 46},
+				},
+			},
+			ERR_CORR_Q: {
+				ECCodewordsPerBlock: 30,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 6, TotalCodewords: 151, DataCodewords: 121},
+					{NumBlocks: 31, TotalCodewords: 55, DataCodewords: 25},
+				},
+			},
+			ERR_CORR_H: {
+				ECCodewordsPerBlock: 30,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 5, TotalCodewords: 145, DataCodewords: 115},
+					{NumBlocks: 41, TotalCodewords: 46, DataCodewords: 16},
+				},
+			},
+		},
+	},
+	34: {
+		totalCodewords: 2761,
+		ecInfo: map[errcorr]ECInfo{
+			ERR_CORR_L: {
+				ECCodewordsPerBlock: 30,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 6, TotalCodewords: 146, DataCodewords: 116},
+					{NumBlocks: 13, TotalCodewords: 145, DataCodewords: 115},
+				},
+			},
+			ERR_CORR_M: {
+				ECCodewordsPerBlock: 28,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 3, TotalCodewords: 135, DataCodewords: 107},
+					{NumBlocks: 31, TotalCodewords: 76, DataCodewords: 48},
+				},
+			},
+			ERR_CORR_Q: {
+				ECCodewordsPerBlock: 28,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 23, TotalCodewords: 75, DataCodewords: 47},
+					{NumBlocks: 14, TotalCodewords: 74, DataCodewords: 46},
+				},
+			},
+			ERR_CORR_H: {
+				ECCodewordsPerBlock: 30,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 7, TotalCodewords: 55, DataCodewords: 25},
+					{NumBlocks: 44, TotalCodewords: 54, DataCodewords: 24},
+				},
+			},
+		},
+	},
+	35: {
+		totalCodewords: 2876,
+		ecInfo: map[errcorr]ECInfo{
+			ERR_CORR_L: {
+				ECCodewordsPerBlock: 30,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 17, TotalCodewords: 152, DataCodewords: 122},
+					{NumBlocks: 2, TotalCodewords: 146, DataCodewords: 116},
+				},
+			},
+			ERR_CORR_M: {
+				ECCodewordsPerBlock: 28,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 26, TotalCodewords: 76, DataCodewords: 48},
+					{NumBlocks: 12, TotalCodewords: 75, DataCodewords: 47},
+				},
+			},
+			ERR_CORR_Q: {
+				ECCodewordsPerBlock: 30,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 4, TotalCodewords: 152, DataCodewords: 122},
+					{NumBlocks: 42, TotalCodewords: 54, DataCodewords: 24},
+				},
+			},
+			ERR_CORR_H: {
+				ECCodewordsPerBlock: 30,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 5, TotalCodewords: 152, DataCodewords: 122},
+					{NumBlocks: 46, TotalCodewords: 46, DataCodewords: 16},
+				},
+			},
+		},
+	},
+	36: {
+		totalCodewords: 3034,
+		ecInfo: map[errcorr]ECInfo{
+			ERR_CORR_L: {
+				ECCodewordsPerBlock: 30,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 14, TotalCodewords: 152, DataCodewords: 122},
+					{NumBlocks: 6, TotalCodewords: 151, DataCodewords: 121},
+				},
+			},
+			ERR_CORR_M: {
+				ECCodewordsPerBlock: 30,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 20, TotalCodewords: 147, DataCodewords: 117},
+					{NumBlocks: 2, TotalCodewords: 47, DataCodewords: 17},
+				},
+			},
+			ERR_CORR_Q: {
+				ECCodewordsPerBlock: 30,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 17, TotalCodewords: 152, DataCodewords: 122},
+					{NumBlocks: 10, TotalCodewords: 45, DataCodewords: 15},
+				},
+			},
+			ERR_CORR_H: {
+				ECCodewordsPerBlock: 28,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 34, TotalCodewords: 76, DataCodewords: 48},
+					{NumBlocks: 6, TotalCodewords: 75, DataCodewords: 47},
+				},
+			},
+		},
+	},
+	37: {
+		totalCodewords: 3196,
+		ecInfo: map[errcorr]ECInfo{
+			ERR_CORR_L: {
+				ECCodewordsPerBlock: 30,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 4, TotalCodewords: 153, DataCodewords: 123},
+					{NumBlocks: 17, TotalCodewords: 152, DataCodewords: 122},
+				},
+			},
+			ERR_CORR_M: {
+				ECCodewordsPerBlock: 28,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 14, TotalCodewords: 75, DataCodewords: 47},
+					{NumBlocks: 29, TotalCodewords: 74, DataCodewords: 46},
+				},
+			},
+			ERR_CORR_Q: {
+				ECCodewordsPerBlock: 30,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 4, TotalCodewords: 151, DataCodewords: 121},
+					{NumBlocks: 48, TotalCodewords: 54, DataCodewords: 24},
+				},
+			},
+			ERR_CORR_H: {
+				ECCodewordsPerBlock: 30,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 10, TotalCodewords: 55, DataCodewords: 25},
+					{NumBlocks: 49, TotalCodewords: 54, DataCodewords: 24},
+				},
+			},
+		},
+	},
+	38: {
+		totalCodewords: 3362,
+		ecInfo: map[errcorr]ECInfo{
+			ERR_CORR_L: {
+				ECCodewordsPerBlock: 30,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 18, TotalCodewords: 153, DataCodewords: 123},
+					{NumBlocks: 4, TotalCodewords: 152, DataCodewords: 122},
+				},
+			},
+			ERR_CORR_M: {
+				ECCodewordsPerBlock: 30,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 19, TotalCodewords: 148, DataCodewords: 118},
+					{NumBlocks: 10, TotalCodewords: 55, DataCodewords: 25},
+				},
+			},
+			ERR_CORR_Q: {
+				ECCodewordsPerBlock: 28,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 32, TotalCodewords: 75, DataCodewords: 47},
+					{NumBlocks: 13, TotalCodewords: 74, DataCodewords: 46},
+				},
+			},
+			ERR_CORR_H: {
+				ECCodewordsPerBlock: 30,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 14, TotalCodewords: 55, DataCodewords: 25},
+					{NumBlocks: 48, TotalCodewords: 54, DataCodewords: 24},
+				},
+			},
+		},
+	},
+	39: {
+		totalCodewords: 3532,
+		ecInfo: map[errcorr]ECInfo{
+			ERR_CORR_L: {
+				ECCodewordsPerBlock: 30,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 4, TotalCodewords: 148, DataCodewords: 118},
+					{NumBlocks: 20, TotalCodewords: 147, DataCodewords: 117},
+				},
+			},
+			ERR_CORR_M: {
+				ECCodewordsPerBlock: 30,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 19, TotalCodewords: 148, DataCodewords: 118},
+					{NumBlocks: 16, TotalCodewords: 45, DataCodewords: 15},
+				},
+			},
+			ERR_CORR_Q: {
+				ECCodewordsPerBlock: 30,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 14, TotalCodewords: 152, DataCodewords: 122},
+					{NumBlocks: 26, TotalCodewords: 54, DataCodewords: 24},
+				},
+			},
+			ERR_CORR_H: {
+				ECCodewordsPerBlock: 28,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 7, TotalCodewords: 76, DataCodewords: 48},
+					{NumBlocks: 40, TotalCodewords: 75, DataCodewords: 47},
+				},
+			},
+		},
+	},
+	40: {
+		totalCodewords: 3706,
+		ecInfo: map[errcorr]ECInfo{
+			ERR_CORR_L: {
+				ECCodewordsPerBlock: 30,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 6, TotalCodewords: 149, DataCodewords: 119},
+					{NumBlocks: 19, TotalCodewords: 148, DataCodewords: 118},
+				},
+			},
+			ERR_CORR_M: {
+				ECCodewordsPerBlock: 28,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 31, TotalCodewords: 76, DataCodewords: 48},
+					{NumBlocks: 18, TotalCodewords: 75, DataCodewords: 47},
+				},
+			},
+			ERR_CORR_Q: {
+				ECCodewordsPerBlock: 30,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 34, TotalCodewords: 55, DataCodewords: 25},
+					{NumBlocks: 34, TotalCodewords: 54, DataCodewords: 24},
+				},
+			},
+			ERR_CORR_H: {
+				ECCodewordsPerBlock: 30,
+				BlockGroups: []BlockGroup{
+					{NumBlocks: 61, TotalCodewords: 46, DataCodewords: 16},
+					{NumBlocks: 20, TotalCodewords: 45, DataCodewords: 15},
+				},
+			},
+		},
+	},
+}
+
+func getDataCapacity(version int, ecLevel errcorr) (int, int) {
+	data := capacityData[version]
+	ecInfo := data.ecInfo[ecLevel]
+
+	totalEC := 0
+	for _, group := range ecInfo.BlockGroups {
+		totalEC += group.NumBlocks * ecInfo.ECCodewordsPerBlock
+	}
+
+	return data.totalCodewords, totalEC
+}

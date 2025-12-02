@@ -19,13 +19,13 @@ var mask_patterns []mask = []mask{
 	{bits: 0b010, condition: func(i, j int) Bit {
 		return Bit(j % 3)
 	}},
-	{bits: 0b101, condition: func(i, j int) Bit {
+	{bits: 0b011, condition: func(i, j int) Bit {
 		return Bit((i + j) % 3)
 	}},
-	{bits: 0b011, condition: func(i, j int) Bit {
+	{bits: 0b100, condition: func(i, j int) Bit {
 		return Bit(((i / 2) + (j / 3)) % 2)
 	}},
-	{bits: 0b100, condition: func(i, j int) Bit {
+	{bits: 0b101, condition: func(i, j int) Bit {
 		return Bit((i*j)%2 + (i*j)%3)
 	}},
 	{bits: 0b110, condition: func(i, j int) Bit {

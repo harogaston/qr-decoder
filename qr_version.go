@@ -5,9 +5,9 @@ import "fmt"
 type QRFormat string
 
 const QR_FORMAT_MODEL_1 = "model1"
-const QR_FORMAT_MODEL_2 = "model2" // included in QR (2024)
-const QR_FORMAT_QR = "qr"          // 2024 specification
-const QR_FORMAT_MICRO_QR = "micro"
+const QR_FORMAT_MODEL_2 = "model2"  // included in QR (2024)
+const QR_FORMAT_QR = QRFormat("qr") // 2024 specification
+const QR_FORMAT_MICRO_QR = QRFormat("micro")
 
 type QRVersion struct {
 	format QRFormat

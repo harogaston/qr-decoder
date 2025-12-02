@@ -65,6 +65,8 @@ There are 4 sizes from version M1 to version M4. Version M1 measures 11 x 11 mod
 - Q: Quartile (25%)
 - H: High (30%)
 
+Note: The error correction level H is not available in micro QR code symbols.
+
 ## Structure
 
 ### Quiet zone
