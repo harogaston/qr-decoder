@@ -109,7 +109,7 @@ func GetCharCountLength(version QRVersion, mode QRMode) int {
 	if version.format == QR_FORMAT_QR {
 		v := version.number
 		switch {
-		case v <= 1 && v <= 9:
+		case v >= 1 && v <= 9:
 			return charCountData[mode][V1To9Version]
 		case v >= 10 && v <= 26:
 			return charCountData[mode][V10To26Version]

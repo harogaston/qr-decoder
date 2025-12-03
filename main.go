@@ -140,7 +140,6 @@ func (qr *qr) add_quiet_zone() {
 	}
 
 	qr.matrix = newMatrix
-	qr.size = newSize
 }
 
 // Helper to place format info with specific mask
@@ -816,16 +815,6 @@ func NewQRCode(r QRRequest) *qr {
 
 	// Encode input_data_bits
 	input_data_bits := encode(mode, r.input)
-
-	// TODO: Determine version from encoded data length
-	//  1. For v = min_version to max_version:
-	//   • mode_bits = mode indicator length
-	//   • char_count_bits = char count indicator length for (mode, v)
-	//   • total_bits = mode_bits + char_count_bits + input_data_bits
-	//   • data_capacity = (total codewords for v and err_corr_level) - (error correction codewords for v
-	//   and err_corr_level)
-	//   • if total_bits <= data_capacity * 8: return v
-	//  2. If no version fits, return 0
 
 	var version_num int
 	if r.version != 0 {
