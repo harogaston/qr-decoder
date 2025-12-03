@@ -941,7 +941,7 @@ func (qr *qr) Draw(shape Shape) {
 		pixs[y] = imgRow
 	}
 	req := ImageRequest{
-		Scale:  4,
+		Scale:  16,
 		Pixels: pixs,
 		Shape:  shape,
 	}
