@@ -67,43 +67,7 @@ func (qr *qr) apply_mask(maskIndex int, matrix [][]module) [][]module {
 // Ideally, we should have marked them during generation.
 // For now, let's implement a check based on coordinates.
 func (qr *qr) isFunctionPattern(row, col int) bool {
-	size := qr.size
-
-	// Finder patterns + separators
-	// Top-left (9x9 including separator)
-	if row < 9 && col < 9 {
-		return true
-	}
-	// Top-right (9x8 including separator - wait, separator is 1 module)
-	// Finder is 7x7. Separator is 1 module around it.
-	// Top-left: (0,0) to (7,7) is finder + separator (8x8).
-	// Actually, let's be precise.
-	// Finder: 0-6. Separator: 7.
-	// Format info: 8.
-	// So 0-8 is reserved area in corners.
-
-	if row <= 8 && col <= 8 {
-		return true
-	}
-	if row <= 8 && col >= size-8 {
-		return true
-	}
-	if row >= size-8 && col <= 8 {
-		return true
-	}
-
-	// Timing patterns
-	if row == 6 || col == 6 {
-		return true
-	}
-
-	// Alignment patterns
-	// We need to know where they are.
-	// This is expensive to recalculate every time.
-	// Better to have a `is_function` matrix in `qr` struct.
-	// But for now, let's assume we can add that to the struct.
-
-	return false
+	return qr.is_function_pattern[row][col]
 }
 
 // Penalty calculation

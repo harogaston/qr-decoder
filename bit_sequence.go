@@ -141,3 +141,35 @@ func (bs *bit_seq) ToBytes() []byte {
 	copy(res, bs.data)
 	return res
 }
+
+func add_padding(bs bit_seq, capacityBytes int) bit_seq {
+	capacityBits := capacityBytes * 8
+
+	// 1. Add Terminator (up to 4 bits of 0s)
+	terminatorLen := 4
+	if capacityBits-bs.len < 4 {
+		terminatorLen = capacityBits - bs.len
+	}
+	if terminatorLen > 0 {
+		term, _ := NewBitSeqWithSize(0, terminatorLen)
+		bs = Concat(bs, term)
+	}
+
+	// 2. Add 0s to make length a multiple of 8
+	if bs.len%8 != 0 {
+		paddingLen := 8 - (bs.len % 8)
+		padding, _ := NewBitSeqWithSize(0, paddingLen)
+		bs = Concat(bs, padding)
+	}
+
+	// 3. Add Byte Padding (0xEC, 0x11)
+	padBytes := []uint{0xEC, 0x11}
+	idx := 0
+	for bs.len < capacityBits {
+		pad, _ := NewBitSeqWithSize(padBytes[idx], 8)
+		bs = Concat(bs, pad)
+		idx = (idx + 1) % 2
+	}
+
+	return bs
+}

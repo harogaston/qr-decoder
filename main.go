@@ -18,14 +18,16 @@ const (
 
 // qr definition and temporary data structures
 type qr struct {
-	matrix           [][]module
-	version          QRVersion
-	error_corr_level errcorr
-	size             int
-	data             []byte
-	encoded_data     bit_seq
-	mode             QRMode
-	mask             int
+	matrix              [][]module
+	version             QRVersion
+	error_corr_level    errcorr
+	size                int
+	data                []byte
+	encoded_data        bit_seq
+	mode                QRMode
+	mask                int
+	is_function_pattern [][]bool
+	debug_no_mask       bool
 }
 
 func (qr *qr) generate() {
@@ -39,7 +41,7 @@ func (qr *qr) generate() {
 	// Encoding region
 	// qr.format_information() // Removed: handled in masking loop
 	qr.version_information()
-	qr.version_information()
+	qr.reserve_format_information_area()
 	qr.data_and_error_correction()
 
 	// Masking
@@ -69,27 +71,38 @@ func (qr *qr) generate() {
 		copy(originalMatrix[i], qr.matrix[i])
 	}
 
-	for mask := 0; mask < 8; mask++ {
-		// Apply mask
-		masked := qr.apply_mask(mask, originalMatrix)
+	if qr.debug_no_mask {
+		fmt.Println("DEBUG: Masking disabled (--debug-no-mask)")
+		// Use original matrix, but we still need to place format info.
+		// We'll use mask 0 for format info generation, but won't apply the mask XOR to data.
+		qr.matrix = originalMatrix
+		qr.mask = 0
+		qr.place_format_information(0)
+		bestMatrix = originalMatrix
+		bestMatrixMask = 0
+	} else {
+		for mask := 0; mask < 8; mask++ {
+			// Apply mask
+			masked := qr.apply_mask(mask, originalMatrix)
 
-		// Add format info (it also has mask bits!)
-		// But format info is in the reserved area.
-		// The spec says:
-		// "The format information is added to the symbol after the masking process."
-		// Wait, format info contains the mask pattern.
-		// So we need to calculate penalty including format info?
-		// "The penalty score is calculated based on the entire symbol."
-		// So we should place format info (with current mask) before calculating penalty.
+			// Add format info (it also has mask bits!)
+			// But format info is in the reserved area.
+			// The spec says:
+			// "The format information is added to the symbol after the masking process."
+			// Wait, format info contains the mask pattern.
+			// So we need to calculate penalty including format info?
+			// "The penalty score is calculated based on the entire symbol."
+			// So we should place format info (with current mask) before calculating penalty.
 
-		qr.matrix = masked // Temporarily set to masked to call format_information
-		qr.place_format_information(mask)
+			qr.matrix = masked // Temporarily set to masked to call format_information
+			qr.place_format_information(mask)
 
-		penalty := calculatePenalty(qr.matrix)
-		if penalty < minPenalty {
-			minPenalty = penalty
-			bestMatrix = masked // This already has format info for this mask
-			bestMatrixMask = mask
+			penalty := calculatePenalty(qr.matrix)
+			if penalty < minPenalty {
+				minPenalty = penalty
+				bestMatrix = masked // This already has format info for this mask
+				bestMatrixMask = mask
+			}
 		}
 	}
 
@@ -102,8 +115,12 @@ func (qr *qr) generate() {
 }
 
 func (qr *qr) add_quiet_zone() {
-	// Quiet zone is 4 modules wide on all sides
+	// Quiet zone is 4 modules wide on all sides for standard QR codes
 	quietZoneWidth := 4
+	if qr.version.format == "Micro" {
+		// Quiet zone is 2 modules wide on all sides for Micro QR codes
+		quietZoneWidth = 2
+	}
 	newSize := qr.size + 2*quietZoneWidth
 	newMatrix := make([][]module, newSize)
 
@@ -129,44 +146,75 @@ func (qr *qr) add_quiet_zone() {
 // Helper to place format info with specific mask
 func (qr *qr) place_format_information(mask int) {
 	// 2 bits
-	err_corr_level := get_error_correction_for_level(qr.error_corr_level)
-
-	// 3 bits
-	mask_pattern := get_mask_pattern_for_mask(mask)
 
 	// 5 bits
-	format_data := err_corr_level<<3 + uint(mask_pattern.bits)
+	// Calculate format information
+	// 15 bits: 5 data bits + 10 BCH bits, masked with 101010000010010
+	formatInfo, err := GenerateFormatInformation(qr.error_corr_level, mask)
+	if err != nil {
+		panic(err)
+	}
 
-	// 10 bits
-	bhc_code := encodeBCH15_5(format_data)
-
-	// 15 bits
-	unmasked_data := format_data<<10 + bhc_code
-	xor_mask_pattern := uint(0b101010000010010)
-
-	data := unmasked_data ^ xor_mask_pattern
-	format_modules := uint_to_modules(data, 15)
-
-	var pos int
-	// row 8
-	for j := range qr.size {
-		if j < 6 || j == 7 || j > qr.size-8-1 {
-			qr.matrix[8][j] = format_modules[pos]
-			pos++
+	// Convert to modules (bit 14 is MSB, bit 0 is LSB)
+	format_modules := make([]module, 15)
+	for i := 0; i < 15; i++ {
+		if (formatInfo>>(14-i))&1 == 1 {
+			format_modules[i] = module{bit: One}
+		} else {
+			format_modules[i] = module{bit: Zero}
 		}
 	}
 
-	pos = 0
-	// column 8
-	for i := qr.size - 1; i >= 0; i-- {
-		if i < 6 || i > 6 && i < 9 || i > qr.size-8 {
-			qr.matrix[i][8] = format_modules[pos]
-			pos++
-		}
+	// Copy 1: Top-Left (around finder pattern)
+	// Bits 14-9 at (8, 0-5)
+	for i := 0; i < 6; i++ {
+		qr.matrix[8][i] = format_modules[i]
+	}
+	// Bit 8 at (8, 7)
+	qr.matrix[8][7] = format_modules[6]
+	// Bit 7 at (8, 8)
+	qr.matrix[8][8] = format_modules[7]
+	// Bit 6 at (7, 8)
+	qr.matrix[7][8] = format_modules[8]
+	// Bits 5-0 at (5-0, 8)
+	for i := 0; i < 6; i++ {
+		qr.matrix[5-i][8] = format_modules[9+i]
+	}
+
+	// Copy 2: Split (Top-Right and Bottom-Left)
+	// Top-Right: Bits 7-0 at (8, size-8 to size-1)
+	// Bit 7 at (8, size-8) ... Bit 0 at (8, size-1)
+	for i := 0; i < 8; i++ {
+		qr.matrix[8][qr.size-8+i] = format_modules[7+i] // format_modules[7] is Bit 7, [14] is Bit 0
+	}
+	// Bottom-Left: Bits 14-8 at (size-7 to size-1, 8)
+	// Bit 14 at (size-7, 8) ... Bit 8 at (size-1, 8)
+	for i := 0; i < 7; i++ {
+		qr.matrix[qr.size-7+i][8] = format_modules[i] // format_modules[0] is Bit 14, [6] is Bit 8
 	}
 
 	// set always dark module 4V + 9, 8
 	qr.matrix[4*qr.version.number+9][8] = module{bit: One}
+}
+
+// marks the format information area as reserved
+func (qr *qr) reserve_format_information_area() {
+	// row 8
+	for j := range qr.size {
+		if j < 6 || j == 7 || j > qr.size-8-1 {
+			qr.is_function_pattern[8][j] = true
+		}
+	}
+
+	// column 8
+	for i := qr.size - 1; i >= 0; i-- {
+		if i < 6 || i > 6 && i < 9 || i > qr.size-8 {
+			qr.is_function_pattern[i][8] = true
+		}
+	}
+
+	// set always dark module 4V + 9, 8
+	qr.is_function_pattern[4*qr.version.number+9][8] = true
 }
 
 // places finder pattern modules
@@ -175,16 +223,19 @@ func (qr *qr) finder_patterns() {
 	for i := range 7 { // size 7
 		for j := range 7 {
 			qr.matrix[i][j] = module{bit: One}
+			qr.is_function_pattern[i][j] = true
 		}
 	}
 	for i := 1; i < 6; i++ { // size 5
 		for j := 1; j < 6; j++ {
 			qr.matrix[i][j] = module{bit: Zero}
+			qr.is_function_pattern[i][j] = true
 		}
 	}
 	for i := 2; i < 5; i++ { // size 3
 		for j := 2; j < 5; j++ {
 			qr.matrix[i][j] = module{bit: One}
+			qr.is_function_pattern[i][j] = true
 		}
 	}
 
@@ -192,16 +243,19 @@ func (qr *qr) finder_patterns() {
 	for i := qr.size - 1; i > qr.size-7-1; i-- { // size 7
 		for j := range 7 {
 			qr.matrix[i][j] = module{bit: One}
+			qr.is_function_pattern[i][j] = true
 		}
 	}
 	for i := qr.size - 1 - 1; i > qr.size-6-1; i-- { // size 5
 		for j := 1; j < 6; j++ {
 			qr.matrix[i][j] = module{bit: Zero}
+			qr.is_function_pattern[i][j] = true
 		}
 	}
 	for i := qr.size - 1 - 2; i > qr.size-5-1; i-- { // size 3
 		for j := 2; j < 5; j++ {
 			qr.matrix[i][j] = module{bit: One}
+			qr.is_function_pattern[i][j] = true
 		}
 	}
 
@@ -209,16 +263,19 @@ func (qr *qr) finder_patterns() {
 	for i := range 7 { // size 7
 		for j := qr.size - 1; j > qr.size-7-1; j-- {
 			qr.matrix[i][j] = module{bit: One}
+			qr.is_function_pattern[i][j] = true
 		}
 	}
 	for i := 1; i < 6; i++ { // size 5
 		for j := qr.size - 1 - 1; j > qr.size-6-1; j-- {
 			qr.matrix[i][j] = module{bit: Zero}
+			qr.is_function_pattern[i][j] = true
 		}
 	}
 	for i := 2; i < 5; i++ { // size 3
 		for j := qr.size - 1 - 2; j > qr.size-5-1; j-- {
 			qr.matrix[i][j] = module{bit: One}
+			qr.is_function_pattern[i][j] = true
 		}
 	}
 }
@@ -228,25 +285,31 @@ func (qr *qr) separators() {
 	// upper left
 	for i := range 8 {
 		qr.matrix[i][7] = module{bit: Zero}
+		qr.is_function_pattern[i][7] = true
 	}
 	for j := range 8 {
 		qr.matrix[7][j] = module{bit: Zero}
+		qr.is_function_pattern[7][j] = true
 	}
 
 	// lower left
 	for i := qr.size - 1; i > qr.size-7-1; i-- {
 		qr.matrix[i][7] = module{bit: Zero}
+		qr.is_function_pattern[i][7] = true
 	}
 	for j := range 8 {
 		qr.matrix[qr.size-7-1][j] = module{bit: Zero}
+		qr.is_function_pattern[qr.size-7-1][j] = true
 	}
 
 	// upper right
 	for i := range 8 {
 		qr.matrix[i][qr.size-7-1] = module{bit: Zero}
+		qr.is_function_pattern[i][qr.size-7-1] = true
 	}
 	for j := qr.size - 1; j > qr.size-7-1; j-- {
 		qr.matrix[7][j] = module{bit: Zero}
+		qr.is_function_pattern[7][j] = true
 	}
 }
 
@@ -260,6 +323,7 @@ func (qr *qr) timing_patterns() {
 		} else {
 			qr.matrix[6][j] = module{bit: One}
 		}
+		qr.is_function_pattern[6][j] = true
 		alternating_flag = !alternating_flag
 	}
 
@@ -271,6 +335,7 @@ func (qr *qr) timing_patterns() {
 		} else {
 			qr.matrix[i][6] = module{bit: One}
 		}
+		qr.is_function_pattern[i][6] = true
 		alternating_flag = !alternating_flag
 	}
 }
@@ -315,17 +380,20 @@ func (qr *qr) add_alignment_pattern_module(row int, col int) {
 	for i := row - 2; i <= row+2; i++ {
 		for j := col - 2; j <= col+2; j++ {
 			qr.matrix[i][j] = module{bit: One}
+			qr.is_function_pattern[i][j] = true
 		}
 	}
 	// 3 by 3 light square
 	for i := row - 1; i <= row+1; i++ {
 		for j := col - 1; j <= col+1; j++ {
 			qr.matrix[i][j] = module{bit: Zero}
+			qr.is_function_pattern[i][j] = true
 		}
 	}
 
 	// single central dark module
 	qr.matrix[row][col] = module{bit: One}
+	qr.is_function_pattern[row][col] = true
 }
 
 // Converts a unit to a character sequence of ones and zeros
@@ -398,43 +466,6 @@ func uint_to_modules(num uint, targetSize int) []module {
 }
 
 // encodes `data` to BCH(15,5). Thank you Gemini 😉
-func encodeBCH15_5(data uint) uint {
-	const n = 15
-	const k = 5
-	const numParityBits = n - k // 10
-	const generatorPoly uint = 0b10100110111
-
-	// Pad the data: data << numParityBits
-	dividend := data << numParityBits
-
-	// Initialize remainder
-	remainder := dividend
-
-	// Perform polynomial long division
-	for i := range k {
-		// Check the leading bit of the current remainder segment
-		// The leading bit is at the (n-1 - i) position relative to the original dividend's MSB
-		// For example, for 15 bits, if i=0, we check bit 14. If i=1, check bit 13, etc.
-		// We need to check the bit that aligns with the MSB of the generator polynomial.
-
-		// This is where it gets tricky with fixed uints:
-		// How do you know the "current leading bit" without converting to array or complex masking?
-		// You would need to check the bit at (numParityBits + k - 1 - i) position.
-
-		currentMSBPos := numParityBits + k - 1 - i // This is the current bit position to check
-
-		if (remainder>>currentMSBPos)&0x1 == 1 { // Check if the leading bit is 1
-			// XOR with the generator polynomial, shifted to align with the current leading bit
-			// The generator needs to be shifted right to align its MSB with the remainder's current MSB
-			shiftAmount := currentMSBPos - 10
-			remainder ^= (generatorPoly << shiftAmount)
-		}
-	}
-
-	// The remainder now holds the parity bits
-	// Extract the last 'numParityBits' bits (LSBs)
-	return remainder & ((1 << numParityBits) - 1)
-}
 
 // encodes `data` to Golay(18,6) equivalent to BCH(18,6). Thank you Gemini 😉
 func encodeGolay18_6(data uint) uint {
@@ -504,6 +535,7 @@ func (qr *qr) version_information() {
 	for i := 6 - 1; i >= 0; i-- {
 		for j := qr.size - 8 - 1; j >= qr.size-8-3; j-- {
 			qr.matrix[i][j] = version_modules[pos]
+			qr.is_function_pattern[i][j] = true
 			pos++
 		}
 	}
@@ -517,6 +549,7 @@ func (qr *qr) version_information() {
 	for j := 6 - 1; j >= 0; j-- {
 		for i := qr.size - 8 - 1; i >= qr.size-8-3; i-- {
 			qr.matrix[i][j] = version_modules[pos]
+			qr.is_function_pattern[i][j] = true
 			pos++
 		}
 	}
@@ -552,6 +585,10 @@ func (qr *qr) data_and_error_correction() {
 
 			// Calculate EC block
 			ecBlock := reedSolomonEncode(block, ecInfo.ECCodewordsPerBlock)
+
+			fmt.Printf("Data Codewords (%d): %v\n", len(block), block)
+			fmt.Printf("EC Codewords (%d): %v\n", len(ecBlock), ecBlock)
+
 			ecBlocks = append(ecBlocks, ecBlock)
 		}
 	}
@@ -790,7 +827,13 @@ func NewQRCode(r QRRequest) *qr {
 	//   • if total_bits <= data_capacity * 8: return v
 	//  2. If no version fits, return 0
 
-	version_num := GetVersionNumber(mode, format, input_data_bits, errcorr(r.err_corr_level))
+	var version_num int
+	if r.version != 0 {
+		version_num = r.version
+	} else {
+		version_num = GetVersionNumber(mode, format, input_data_bits, errcorr(r.err_corr_level))
+	}
+
 	version := QRVersion{
 		format: format,
 		number: version_num,
@@ -799,6 +842,19 @@ func NewQRCode(r QRRequest) *qr {
 	character_count := character_count(mode, version, r.input)
 
 	output := ConcatMany(GetModeIndicatorBits(version, mode), character_count, input_data_bits)
+
+	// Add Padding
+	// Calculate total data capacity in bytes
+	dataInfo := capacityData[version.number]
+	ecInfo := dataInfo.ecInfo[errcorr(r.err_corr_level)]
+	totalECCodewords := 0
+	for _, group := range ecInfo.BlockGroups {
+		totalECCodewords += ecInfo.ECCodewordsPerBlock * group.NumBlocks
+	}
+	dataCapacityBytes := dataInfo.totalCodewords - totalECCodewords
+
+	output = add_padding(output, dataCapacityBytes)
+
 	print_bit_seq(output)
 
 	// NOTE: hasta acá va bien el ejemplo ======
@@ -806,17 +862,21 @@ func NewQRCode(r QRRequest) *qr {
 	// Calculate error correction codewords
 	size := 21 + (version.number-1)*4
 	matrix := make([][]module, size)
+	isFunctionPattern := make([][]bool, size)
 	for i := range size {
 		matrix[i] = make([]module, size)
+		isFunctionPattern[i] = make([]bool, size)
 	}
 	qr := &qr{
-		matrix:           matrix,
-		version:          version,
-		error_corr_level: errcorr(r.err_corr_level),
-		size:             size,
-		data:             []byte(r.input),
-		encoded_data:     output,
-		mode:             mode,
+		matrix:              matrix,
+		is_function_pattern: isFunctionPattern,
+		version:             version,
+		error_corr_level:    errcorr(r.err_corr_level),
+		size:                size,
+		data:                []byte(r.input),
+		encoded_data:        output,
+		mode:                mode,
+		debug_no_mask:       r.debug_no_mask,
 	}
 	qr.generate()
 	return qr
@@ -882,7 +942,7 @@ func (qr *qr) Print() {
 	WriteText(req)
 }
 
-func (qr *qr) Draw() {
+func (qr *qr) Draw(shape Shape) {
 	pixs := make([][]color.Color, len(qr.matrix[0]))
 	for y, row := range qr.matrix {
 		imgRow := make([]color.Color, len(row))
@@ -894,6 +954,7 @@ func (qr *qr) Draw() {
 	req := ImageRequest{
 		Scale:  4,
 		Pixels: pixs,
+		Shape:  shape,
 	}
 	WriteImage(req)
 }
@@ -903,23 +964,27 @@ type QRRequest struct {
 	is_micro       bool
 	err_corr_level string
 	version        int
+	debug_no_mask  bool
 }
 
 func main() {
 	args := os.Args[1:]
 
 	if len(args) > 0 && (args[0] == "-h" || args[0] == "--help") {
-		fmt.Println("Usage: qr-decoder [ErrorCorrectionLevel] [Data] [Version] [IsMicro]")
+		fmt.Println("Usage: qr-decoder [ErrorCorrectionLevel] [Data] [Version] [IsMicro] [Shape]")
 		fmt.Println("")
 		fmt.Println("Arguments:")
 		fmt.Println("  ErrorCorrectionLevel: L, M, Q, H (default: L)")
 		fmt.Println("  Data: String to encode (default: \"01234567\")")
 		fmt.Println("  Version: QR Code version 1-40 (optional, auto-detected if 0 or omitted)")
 		fmt.Println("  IsMicro: true/false (default: false)")
+		fmt.Println("  IsMicro: true/false (default: false)")
+		fmt.Println("  Shape: square, circle, rounded, diamond (default: square)")
+		fmt.Println("  --debug-no-mask: Disable masking for debugging (optional)")
 		fmt.Println("")
 		fmt.Println("Examples:")
 		fmt.Println("  qr-decoder L \"Hello World\"")
-		fmt.Println("  qr-decoder M \"1234567890\" 5")
+		fmt.Println("  qr-decoder M \"1234567890\" 5 false circle")
 		return
 	}
 
@@ -956,18 +1021,49 @@ func main() {
 		}
 	}
 
+	var shape Shape = ShapeSquare
+	if len(args) > 4 {
+		shape = Shape(args[4])
+	}
+
+	var debug_no_mask bool
+	for _, arg := range args {
+		if arg == "--debug-no-mask" {
+			debug_no_mask = true
+			break
+		}
+	}
+
 	req := QRRequest{
 		input:          data,
 		is_micro:       is_micro,
 		err_corr_level: err_corr_level,
 		version:        int(version),
+		debug_no_mask:  debug_no_mask,
 	}
 
 	// qr := NewQRCode(version, err_corr_level, data)
 	qr := NewQRCode(req)
 	fmt.Println(qr.String())
 	fmt.Printf("Mode: %s\n", qr.mode)
-	fmt.Printf("Mask Pattern: %d\n", qr.mask)
-	qr.Draw()
-	// qr.Print()
+	formatInfo, _ := GenerateFormatInformation(qr.error_corr_level, qr.mask)
+	fmt.Printf("Mask Pattern: %d (%015b)\n", qr.mask, formatInfo)
+	qr.Draw(shape)
+
+	// Dump matrix for comparison
+	f, _ := os.Create("my_matrix.txt")
+	defer f.Close()
+	// Skip quiet zone (4 modules)
+	start := 4
+	end := qr.size - 4
+	for i := start; i < end; i++ {
+		for j := start; j < end; j++ {
+			if qr.matrix[i][j].bit == One {
+				f.WriteString("1")
+			} else {
+				f.WriteString("0")
+			}
+		}
+		f.WriteString("\n")
+	}
 }
