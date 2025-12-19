@@ -2,8 +2,10 @@ package main
 
 import (
 	"bytes"
-	"fmt"
+	"os"
 )
+
+const txtpath = "qr.txt"
 
 type TextRequest struct {
 	Size  int
@@ -11,24 +13,15 @@ type TextRequest struct {
 }
 
 func WriteText(req TextRequest) {
-	// FIXME: support more than version 20 or size 99 modules
+	f, _ := os.Create(txtpath)
+	defer f.Close()
+
 	var b bytes.Buffer
-	// Write header line
-	b.WriteString("  ")
-	for i := range req.Size {
-		b.WriteString(fmt.Sprintf("%2d ", i))
-	}
-	b.WriteString("\n")
-
-	// TODO: quiet zone
-
-	// Write matrix with line number prefix
-	for i, line := range req.Chars {
-		b.WriteString(fmt.Sprintf("%2d ", i))
+	for _, line := range req.Chars {
 		for _, cell := range line {
-			b.WriteString(cell.Char() + "  ")
+			b.WriteString(cell.Char())
 		}
 		b.WriteString("\n")
 	}
-	fmt.Println(b.String())
+	f.WriteString(b.String())
 }

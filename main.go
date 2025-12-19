@@ -931,6 +931,15 @@ func (qr *qr) Print() {
 	WriteText(req)
 }
 
+type Shape string
+
+const (
+	ShapeSquare  Shape = "square"
+	ShapeCircle  Shape = "circle"
+	ShapeRounded Shape = "rounded"
+	ShapeDiamond Shape = "diamond"
+)
+
 func (qr *qr) Draw(shape Shape) {
 	pixs := make([][]color.Color, len(qr.matrix[0]))
 	for y, row := range qr.matrix {
@@ -940,12 +949,25 @@ func (qr *qr) Draw(shape Shape) {
 		}
 		pixs[y] = imgRow
 	}
-	req := ImageRequest{
+	req1 := PNGRequest{
 		Scale:  16,
 		Pixels: pixs,
 		Shape:  shape,
 	}
-	WriteImage(req)
+	WritePNG(req1)
+
+	req2 := SVGRequest{
+		Scale:  16,
+		Pixels: pixs,
+		Shape:  shape,
+	}
+	WriteSVG(req2)
+
+	req3 := TextRequest{
+		Size:  qr.size,
+		Chars: qr.matrix,
+	}
+	WriteText(req3)
 }
 
 type QRRequest struct {
@@ -966,7 +988,6 @@ func main() {
 		fmt.Println("  ErrorCorrectionLevel: L, M, Q, H (default: L)")
 		fmt.Println("  Data: String to encode (default: \"01234567\")")
 		fmt.Println("  Version: QR Code version 1-40 (optional, auto-detected if 0 or omitted)")
-		fmt.Println("  IsMicro: true/false (default: false)")
 		fmt.Println("  IsMicro: true/false (default: false)")
 		fmt.Println("  Shape: square, circle, rounded, diamond (default: square)")
 		fmt.Println("  --debug-no-mask: Disable masking for debugging (optional)")
@@ -1010,7 +1031,7 @@ func main() {
 		}
 	}
 
-	var shape Shape = ShapeSquare
+	var shape Shape = ShapeCircle
 	if len(args) > 4 {
 		shape = Shape(args[4])
 	}
@@ -1039,20 +1060,4 @@ func main() {
 	fmt.Printf("Mask Pattern: %d (%015b)\n", qr.mask, formatInfo)
 	qr.Draw(shape)
 
-	// Dump matrix for comparison
-	f, _ := os.Create("my_matrix.txt")
-	defer f.Close()
-	// Skip quiet zone (4 modules)
-	start := 4
-	end := qr.size - 4
-	for i := start; i < end; i++ {
-		for j := start; j < end; j++ {
-			if qr.matrix[i][j].bit == One {
-				f.WriteString("1")
-			} else {
-				f.WriteString("0")
-			}
-		}
-		f.WriteString("\n")
-	}
 }

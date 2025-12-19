@@ -1,28 +1,22 @@
 package main
 
 import (
+	"fmt"
 	"image/color"
 
 	"github.com/fogleman/gg"
 )
 
-type Shape string
+const pngpath = "qr.png"
 
-const (
-	ShapeSquare  Shape = "square"
-	ShapeCircle  Shape = "circle"
-	ShapeRounded Shape = "rounded"
-	ShapeDiamond Shape = "diamond"
-)
-
-type ImageRequest struct {
+type PNGRequest struct {
 	Scale        int
 	Pixels       [][]color.Color
 	Shape        Shape
 	BorderRadius float64 // For rounded rect (0-1, relative to module size)
 }
 
-func WriteImage(req ImageRequest) {
+func WritePNG(req PNGRequest) {
 	rows := len(req.Pixels)
 	cols := len(req.Pixels[0])
 	width := cols * req.Scale
@@ -59,6 +53,9 @@ func WriteImage(req ImageRequest) {
 			// For circles/rounded, they might not fill the square fully.
 
 			switch req.Shape {
+			case ShapeSquare:
+				dc.DrawRectangle(posX, posY, size, size)
+				dc.Fill()
 			case ShapeCircle:
 				radius := size / 2
 				dc.DrawCircle(posX+radius, posY+radius, radius)
@@ -90,12 +87,11 @@ func WriteImage(req ImageRequest) {
 				dc.DrawRectangle(posX+offset, posY+offset, size*scale, size*scale)
 				dc.Fill()
 				dc.Pop()
-			default: // ShapeSquare
-				dc.DrawRectangle(posX, posY, size, size)
-				dc.Fill()
+			default:
+				fmt.Println("Not implemented shape:", req.Shape)
 			}
 		}
 	}
 
-	dc.SavePNG("qr.png")
+	dc.SavePNG(pngpath)
 }
