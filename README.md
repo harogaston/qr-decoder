@@ -29,21 +29,21 @@ Standard evolution:
 region of the symbol not occupied by *function patterns* and available for encoding data and error
 correction codewords, and for *version* and *format information*
 
-2. ***function patterns***
+1. ***function patterns***
 
 overhead component of the symbol (finder, separator, timing patterns and alignment patterns)
 required for location of the symbol or identification of its characteristics to assist in decoding
 
-3. ***version***
+1. ***version***
 
 size of the symbol represented in terms of its position in the sequence of permissible sizes
 
-4. ***format information***
+1. ***format information***
 
 encoded pattern containing information on symbol characteristics essential to enable the remainder of the
 *encoding region* to be decoded
 
-5. ***remainder codeword***
+1. ***remainder codeword***
 
 pad codeword, placed after the error correction codewords, used to fill empty codeword positions to
 complete the symbol
@@ -66,6 +66,17 @@ There are 4 sizes from version M1 to version M4. Version M1 measures 11 x 11 mod
 - H: High (30%)
 
 Note: The error correction level H is not available in micro QR code symbols.
+
+## Encodable character sets
+
+1) numeric data (digits 0 - 9)
+2) alphanumeric data (digits; upper case letters A - Z; space, $ % * + - . / :)
+3) byte data (default: ISO/IEC 8859-1; or other sets as otherwise defined)
+4) Kanji characters
+
+### Additions to data modes and encoding
+
+FNC1 mode for GS1 application identifiers - application specific data. ECI mode for extended channel interpretation - using other character sets different from Latin-1. Structured append mode for splitting data across multiple symbols.
 
 ## Structure
 
@@ -141,7 +152,7 @@ The resulting bis sequence is mapped twice in the QR Code, into the areas reserv
 
 ## Step 1: Data analysis
 
-Identify the different characters to encode. Select the desired error correction level. If no version is specified, select the smallest version that can accomodate the data.
+Identify the different characters to encode. Select the desired error correction level. If no version is specified, select the smallest version that can accomodate the data. This is also when if using mode switching, the mode for each data segment is determined.
 
 ## Step 2: Data encoding
 
@@ -184,7 +195,7 @@ The alphanumeric mode encodes data from a set of 45 characters: 10 numeric digit
 
 ### Byte mode
 
-In byte mode, data is encoded at 8 bits per character.
+In byte mode, data is encoded at 8 bits per character using Latin-1.
 
 ### Kanji mode
 

@@ -1,5 +1,11 @@
 package main
 
+import (
+	"github.com/harogaston/qr-decoder/bitseq"
+	"github.com/harogaston/qr-decoder/modes"
+	"github.com/harogaston/qr-decoder/version"
+)
+
 // Constants for specific versions
 type charCountVersionClass string
 
@@ -24,8 +30,8 @@ type CharCountDataLength map[charCountVersionClass]int
 // | 1 to 9    | 10           | 9                 | 8         | 8          |
 // | 10 to 26  | 12           | 11                | 16        | 10         |
 // | 27 to 40  | 14           | 13                | 16        | 12         |
-var charCountData = map[QRMode]CharCountDataLength{
-	NumericMode: {
+var charCountData = map[modes.QRMode]CharCountDataLength{
+	modes.NumericMode: {
 		M1Version:      3,
 		M2Version:      4,
 		M3Version:      5,
@@ -34,7 +40,7 @@ var charCountData = map[QRMode]CharCountDataLength{
 		V10To26Version: 12,
 		V27To40Version: 14,
 	},
-	AlphanumericMode: {
+	modes.AlphanumericMode: {
 		M1Version:      0,
 		M2Version:      3,
 		M3Version:      4,
@@ -43,7 +49,7 @@ var charCountData = map[QRMode]CharCountDataLength{
 		V10To26Version: 11,
 		V27To40Version: 13,
 	},
-	ByteMode: {
+	modes.ByteMode: {
 		M1Version:      0,
 		M2Version:      0,
 		M3Version:      4,
@@ -52,7 +58,7 @@ var charCountData = map[QRMode]CharCountDataLength{
 		V10To26Version: 16,
 		V27To40Version: 16,
 	},
-	KanjiMode: {
+	modes.KanjiMode: {
 		M1Version:      0,
 		M2Version:      0,
 		M3Version:      3,
@@ -63,38 +69,37 @@ var charCountData = map[QRMode]CharCountDataLength{
 	},
 }
 
-func GetVersionNumber(mode QRMode, format QRFormat, data bit_seq, ecLevel errcorr) int {
-	if format == QR_FORMAT_MICRO_QR {
-		// TODO: Implement Micro QR capacity check
-		return 1 // Placeholder
-	}
+func GetVersionNumber(mode modes.QRMode, format version.QRFormat, data bitseq.BitSeq, ecLevel errcorr) int {
+	switch format {
+	case version.FORMAT_QR, version.FORMAT_QR_MODEL_2:
+		for v := 1; v <= 40; v++ {
+			// 1. Mode indicator length
+			modeBits := 4 // For QR Code (except Micro)
 
-	for v := 1; v <= 40; v++ {
-		// 1. Mode indicator length
-		modeBits := 4 // For QR Code (except Micro)
+			// 2. Char count indicator length
+			charCountBits := GetCharCountLength(version.QRVersion{Format: format, Number: v}, mode)
 
-		// 2. Char count indicator length
-		charCountBits := GetCharCountLength(QRVersion{format: format, number: v}, mode)
+			// 3. Total bits
+			totalBits := modeBits + charCountBits + data.Len()
 
-		// 3. Total bits
-		totalBits := modeBits + charCountBits + data.len
+			// 4. Data capacity
+			totalCodewords, ecCodewords := getDataCapacity(v, ecLevel)
+			dataCapacityBits := (totalCodewords - ecCodewords) * 8
 
-		// 4. Data capacity
-		totalCodewords, ecCodewords := getDataCapacity(v, ecLevel)
-		dataCapacityBits := (totalCodewords - ecCodewords) * 8
-
-		if totalBits <= dataCapacityBits {
-			return v
+			if totalBits <= dataCapacityBits {
+				return v
+			}
 		}
+		// TODO: Implement Micro QR capacity check
 	}
 	return 0
 }
 
 // GetCharCountLength retrieves the character count for a given QR version and mode.
 // Returns 0 for N/A cases.
-func GetCharCountLength(version QRVersion, mode QRMode) int {
-	if version.format == QR_FORMAT_MICRO_QR {
-		v := version.number
+func GetCharCountLength(qrversion version.QRVersion, mode modes.QRMode) int {
+	if qrversion.Format == version.FORMAT_MICRO_QR {
+		v := qrversion.Number
 		switch {
 		case v == 1:
 			return charCountData[mode][M1Version]
@@ -106,8 +111,8 @@ func GetCharCountLength(version QRVersion, mode QRMode) int {
 			return charCountData[mode][M4Version]
 		}
 	}
-	if version.format == QR_FORMAT_QR {
-		v := version.number
+	if qrversion.Format == version.FORMAT_QR || qrversion.Format == version.FORMAT_QR_MODEL_2 {
+		v := qrversion.Number
 		switch {
 		case v >= 1 && v <= 9:
 			return charCountData[mode][V1To9Version]

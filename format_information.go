@@ -2,15 +2,14 @@ package main
 
 import (
 	"errors"
-	"fmt"
 )
 
 const (
-	// Format Info Mask Pattern: 101010000010010 (0x5412)
-	formatInfoMaskPattern = 0x5412
+	// Format Info Mask Pattern: 0b101010000010010 (0x5412)
+	format_information_mask_pattern = 0x5412
 	// BCH(15, 5) Generator Polynomial: x^10 + x^8 + x^5 + x^4 + x^2 + x + 1
 	// 10100110111 (0x537)
-	formatInfoGeneratorPoly = 0x537
+	format_information_generator_poly = 0x537
 )
 
 // GenerateFormatInformation calculates the 15-bit format information sequence
@@ -22,41 +21,28 @@ func GenerateFormatInformation(ecLevel errcorr, maskPattern int) (uint16, error)
 		return 0, errors.New("invalid mask pattern reference")
 	}
 
-	// 1. Encode Error Correction Level (2 bits)
-	var ecBits uint
-	switch ecLevel {
-	case ERR_CORR_L:
-		ecBits = 0b01
-	case ERR_CORR_M:
-		ecBits = 0b00
-	case ERR_CORR_Q:
-		ecBits = 0b11
-	case ERR_CORR_H:
-		ecBits = 0b10
-	default:
-		return 0, fmt.Errorf("invalid error correction level: %s", ecLevel)
-	}
+	ecBits := get_error_correction_for_level(ecLevel)
 
 	// 2. Combine with Mask Pattern (3 bits)
 	// Format: [EC Level (2 bits)] [Mask Pattern (3 bits)]
 	data := (ecBits << 3) | uint(maskPattern)
 
 	// 3. Calculate BCH(15, 5) Error Correction Bits (10 bits)
-	bchBits := calculateBCH(data, formatInfoGeneratorPoly)
+	bchBits := encodeBCH15_5(data, format_information_generator_poly)
 
 	// 4. Assemble 15-bit sequence: [Data (5 bits)] [BCH (10 bits)]
 	fullSequence := (data << 10) | bchBits
 
 	// 5. XOR with Mask Pattern
-	maskedSequence := fullSequence ^ formatInfoMaskPattern
+	maskedSequence := fullSequence ^ format_information_mask_pattern
 
 	return uint16(maskedSequence), nil
 }
 
-// calculateBCH calculates the BCH error correction bits.
+// encodeBCH15_5 calculates the BCH error correction bits.
 // data: The data bits (5 bits for format info).
 // poly: The generator polynomial.
-func calculateBCH(data uint, poly uint) uint {
+func encodeBCH15_5(data uint, poly uint) uint {
 	// We are calculating 10 parity bits for a (15, 5) code.
 	// The input data is 5 bits.
 	// We align the data to the MSB of the 15-bit field.

@@ -4,29 +4,6 @@ import (
 	"math"
 )
 
-// Mask patterns
-// 000: (i + j) mod 2 = 0
-// 001: i mod 2 = 0
-// 010: j mod 3 = 0
-// 011: (i + j) mod 3 = 0
-// 100: ((i div 2) + (j div 3)) mod 2 = 0
-// 101: (i j) mod 2 + (i j) mod 3 = 0
-// 110: ((i j) mod 2 + (i j) mod 3) mod 2 = 0
-// 111: ((i+j) mod 2 + (i j) mod 3) mod 2 = 0
-
-type maskFunc func(i, j int) bool
-
-var maskPatterns = []maskFunc{
-	func(i, j int) bool { return (i+j)%2 == 0 },
-	func(i, j int) bool { return i%2 == 0 },
-	func(i, j int) bool { return j%3 == 0 },
-	func(i, j int) bool { return (i+j)%3 == 0 },
-	func(i, j int) bool { return ((i/2)+(j/3))%2 == 0 },
-	func(i, j int) bool { return (i*j)%2+(i*j)%3 == 0 },
-	func(i, j int) bool { return ((i*j)%2+(i*j)%3)%2 == 0 },
-	func(i, j int) bool { return ((i+j)%2+(i*j)%3)%2 == 0 },
-}
-
 // Apply mask to the matrix.
 // Note: Masking is NOT applied to function patterns.
 // We need a way to know which modules are function patterns.
@@ -40,7 +17,7 @@ func (qr *qr) apply_mask(maskIndex int, matrix [][]module) [][]module {
 		copy(maskedMatrix[i], matrix[i])
 	}
 
-	maskFn := maskPatterns[maskIndex]
+	mask := get_mask_pattern_for_mask(maskIndex)
 
 	for i := 0; i < size; i++ {
 		for j := 0; j < size; j++ {
@@ -49,7 +26,7 @@ func (qr *qr) apply_mask(maskIndex int, matrix [][]module) [][]module {
 				continue
 			}
 
-			if maskFn(i, j) {
+			if mask.maskFn(i, j) {
 				// Flip the bit
 				if maskedMatrix[i][j].bit == Zero {
 					maskedMatrix[i][j].bit = One

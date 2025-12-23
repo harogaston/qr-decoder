@@ -6,28 +6,34 @@ import (
 	"math"
 	"math/bits"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
-)
 
-const (
-	Black = `■` // \u25A0
-	White = `□` // \u25A1
-	undef = `▿` // \u25BF or \u25AA or \u25AB
+	"github.com/harogaston/qr-decoder/bitseq"
+	"github.com/harogaston/qr-decoder/modes"
+	"github.com/harogaston/qr-decoder/version"
 )
 
 // qr definition and temporary data structures
 type qr struct {
 	matrix              [][]module
-	version             QRVersion
+	version             version.QRVersion
 	error_corr_level    errcorr
 	size                int
 	data                []byte
-	encoded_data        bit_seq
-	mode                QRMode
+	encoded_data        bitseq.BitSeq
+	mode                modes.QRMode
 	mask                int
 	is_function_pattern [][]bool
 	debug_no_mask       bool
+}
+
+func (qr *qr) DebugPrint() {
+	fmt.Println(qr.String())
+	fmt.Printf("Mode: %s\n", qr.mode)
+	formatInfo, _ := GenerateFormatInformation(qr.error_corr_level, qr.mask)
+	fmt.Printf("Mask Pattern: %d (%015b)\n", qr.mask, formatInfo)
 }
 
 func (qr *qr) generate() {
@@ -117,7 +123,7 @@ func (qr *qr) generate() {
 func (qr *qr) add_quiet_zone() {
 	// Quiet zone is 4 modules wide on all sides for standard QR codes
 	quietZoneWidth := 4
-	if qr.version.format == "Micro" {
+	if qr.version.Format == "Micro" {
 		// Quiet zone is 2 modules wide on all sides for Micro QR codes
 		quietZoneWidth = 2
 	}
@@ -193,7 +199,7 @@ func (qr *qr) place_format_information(mask int) {
 	}
 
 	// set always dark module 4V + 9, 8
-	qr.matrix[4*qr.version.number+9][8] = module{bit: One}
+	qr.matrix[4*qr.version.Number+9][8] = module{bit: One}
 }
 
 // marks the format information area as reserved
@@ -213,7 +219,7 @@ func (qr *qr) reserve_format_information_area() {
 	}
 
 	// set always dark module 4V + 9, 8
-	qr.is_function_pattern[4*qr.version.number+9][8] = true
+	qr.is_function_pattern[4*qr.version.Number+9][8] = true
 }
 
 // places finder pattern modules
@@ -341,7 +347,7 @@ func (qr *qr) timing_patterns() {
 
 // places alignment patter modules
 func (qr *qr) alignment_patterns() {
-	coords := get_alignment_patterns_for_version(qr.version.number)
+	coords := get_alignment_patterns_for_version(qr.version.Number)
 	for _, alignment_pos := range coords {
 		alignment_pattern_upper_left := []int{alignment_pos[0] - 2, alignment_pos[1] - 2}
 		alignment_pattern_lower_left := []int{alignment_pos[0] + 2, alignment_pos[1] - 2}
@@ -464,9 +470,7 @@ func uint_to_modules(num uint, targetSize int) []module {
 	return append(padding, res...)
 }
 
-// encodes `data` to BCH(15,5). Thank you Gemini 😉
-
-// encodes `data` to Golay(18,6) equivalent to BCH(18,6). Thank you Gemini 😉
+// encodes `data` to Golay(18,6). Thank you Gemini 😉
 func encodeGolay18_6(data uint) uint {
 	const n = 18
 	const k = 6
@@ -508,11 +512,11 @@ func encodeGolay18_6(data uint) uint {
 // places version information modules
 func (qr *qr) version_information() {
 	// Version information is only included for version 7 and up
-	if qr.version.number < 7 {
+	if qr.version.Number < 7 {
 		return
 	}
 
-	version_data := uint(qr.version.number)
+	version_data := uint(qr.version.Number)
 
 	// 12 bits
 	golay_code := encodeGolay18_6(version_data)
@@ -556,11 +560,11 @@ func (qr *qr) version_information() {
 
 func (qr *qr) data_and_error_correction() {
 	// 1. Get data codewords and block info
-	data := capacityData[qr.version.number]
+	data := capacityData[qr.version.Number]
 	ecInfo := data.ecInfo[qr.error_corr_level]
 
 	// Convert bit_seq to bytes
-	dataBytes := qr.encoded_data.ToBytes()
+	dataBytes := qr.encoded_data.Bytes(bitseq.MSBFirst)
 
 	// 2. Split into blocks and calculate EC
 	var dataBlocks [][]byte
@@ -686,135 +690,76 @@ func uint_append(first, second uint) uint {
 
 // Calculates character count of given input data in the
 // corresponding data mode
-func character_count(mode QRMode, version QRVersion, input string) bit_seq {
-	bs, _ := NewBitSeqWithSize(uint(len(input)), GetCharCountLength(version, mode))
+func character_count(mode modes.QRMode, version version.QRVersion, input string) bitseq.BitSeq {
+	bs := bitseq.FromInt(uint64(len(input)), GetCharCountLength(version, mode))
 	return bs
 }
 
-var alphanumericValues = map[rune]int{
-	'0': 0, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9,
-	'A': 10, 'B': 11, 'C': 12, 'D': 13, 'E': 14, 'F': 15, 'G': 16, 'H': 17, 'I': 18, 'J': 19,
-	'K': 20, 'L': 21, 'M': 22, 'N': 23, 'O': 24, 'P': 25, 'Q': 26, 'R': 27, 'S': 28, 'T': 29,
-	'U': 30, 'V': 31, 'W': 32, 'X': 33, 'Y': 34, 'Z': 35,
-	' ': 36, '$': 37, '%': 38, '*': 39, '+': 40, '-': 41, '.': 42, '/': 43, ':': 44,
-}
-
-func encode(mode QRMode, input string) bit_seq {
+func encode(mode modes.QRMode, input string) bitseq.BitSeq {
 	switch mode {
-	case NumericMode:
-		return encode_numeric(input)
-	case AlphanumericMode:
-		return encode_alphanumeric(input)
-	case ByteMode:
+	case modes.NumericMode:
+		return modes.EncodeNumeric(input)
+	case modes.AlphanumericMode:
+		return modes.EncodeAlphanumeric(input)
+	case modes.ByteMode:
 		return encode_byte(input)
 	default:
 		panic("encode: data mode not implemented!")
 	}
 }
 
-func encode_numeric(input string) bit_seq {
-	var output bit_seq
-	var prev int
-
-	for prev < len(input) {
-		if len(input) == prev+1 { // Encode in 4 bits
-			group := input[prev : prev+1]
-			group_uint64, err := strconv.ParseUint(group, 10, 4)
-			if err != nil {
-				panic(err)
-			}
-			b, _ := NewBitSeqWithSize(uint(group_uint64), 4)
-			output = Concat(output, b)
-			prev = prev + 1
-		} else if len(input) == prev+2 { // Encode in 7 bits
-			group := input[prev : prev+2]
-			group_uint64, err := strconv.ParseUint(group, 10, 7)
-			if err != nil {
-				panic(err)
-			}
-			b, _ := NewBitSeqWithSize(uint(group_uint64), 7)
-			output = Concat(output, b)
-			prev = prev + 2
-		} else if len(input) >= prev+3 { // Encode in 10 bits
-			group := input[prev : prev+3]
-			group_uint64, err := strconv.ParseUint(group, 10, 10)
-			if err != nil {
-				panic(err)
-			}
-			b, _ := NewBitSeqWithSize(uint(group_uint64), 10)
-			output = Concat(output, b)
-			prev = prev + 3
-		}
-	}
-	return output
-}
-
-func encode_alphanumeric(input string) bit_seq {
-	var output bit_seq
-	for i := 0; i < len(input); i += 2 {
-		if i+1 < len(input) {
-			// Pair
-			val1 := alphanumericValues[rune(input[i])]
-			val2 := alphanumericValues[rune(input[i+1])]
-			val := 45*val1 + val2
-			b, _ := NewBitSeqWithSize(uint(val), 11)
-			output = Concat(output, b)
-		} else {
-			// Single
-			val := alphanumericValues[rune(input[i])]
-			b, _ := NewBitSeqWithSize(uint(val), 6)
-			output = Concat(output, b)
-		}
-	}
-	return output
-}
-
-func encode_byte(input string) bit_seq {
-	var output bit_seq
+func encode_byte(input string) bitseq.BitSeq {
+	var output bitseq.BitSeq
 	for i := 0; i < len(input); i++ {
-		b, _ := NewBitSeqWithSize(uint(input[i]), 8)
-		output = Concat(output, b)
+		b := bitseq.FromInt(uint64(input[i]), 8)
+		output = output.Append(b)
 	}
 	return output
 }
 
-func getBestMode(data string) QRMode {
-	isNumeric := true
-	isAlphanumeric := true
+func ApplyQRPadding(bs bitseq.BitSeq, capacityBytes int) bitseq.BitSeq {
+	capacityBits := capacityBytes * 8
 
-	for _, r := range data {
-		if r < '0' || r > '9' {
-			isNumeric = false
-		}
-		if _, ok := alphanumericValues[r]; !ok {
-			isAlphanumeric = false
-		}
+	// 1. Terminator: Up to 4 bits of 0s
+	// TODO: Call modes.GetTerminatorBits
+	termLen := min(4, capacityBits-bs.Len())
+	if termLen > 0 {
+		bs = bitseq.ConcatMany(bs, bitseq.ZeroSequence(termLen))
 	}
 
-	if isNumeric {
-		return NumericMode
+	// 2. Bit alignment: Make it a multiple of 8
+	if alignLen := bs.AlignToByte(); alignLen > 0 {
+		bs = bitseq.ConcatMany(bs, bitseq.ZeroSequence(alignLen))
 	}
-	if isAlphanumeric {
-		return AlphanumericMode
+
+	// 3. Byte Padding: Fill remaining space with alternating patterns
+	padPatterns := []uint64{0xEC, 0x11}
+	patternIdx := 0
+
+	for bs.Len() < capacityBits {
+		// Create a full byte (8 bits) from the pattern
+		pattern := bitseq.FromInt(padPatterns[patternIdx], 8)
+		bs = bitseq.ConcatMany(bs, pattern)
+
+		// Alternate patterns
+		patternIdx = (patternIdx + 1) % len(padPatterns)
 	}
-	return ByteMode
+
+	return bs
 }
 
 func NewQRCode(r QRRequest) *qr {
-	// Structure
-	// a mode indicator, a character count indicator, data bits (input data + error correction) + padding
+	// Step 1 - Data analysis
+	mode := modes.GetMode(r.input_data)
 
-	// TODO: Determine best mode from input data
-	mode := getBestMode(r.input)
-
-	// Format
-	format := QR_FORMAT_QR
-	if r.is_micro {
-		format = QR_FORMAT_MICRO_QR
-	}
+	format := version.FORMAT_QR_MODEL_2
+	// TODO: Format
+	// if r.is_micro {
+	// 	format = QR_FORMAT_MICRO_QR
+	// }
 
 	// Encode input_data_bits
-	input_data_bits := encode(mode, r.input)
+	input_data_bits := encode(mode, r.input_data)
 
 	var version_num int
 	if r.version != 0 {
@@ -823,18 +768,18 @@ func NewQRCode(r QRRequest) *qr {
 		version_num = GetVersionNumber(mode, format, input_data_bits, errcorr(r.err_corr_level))
 	}
 
-	version := QRVersion{
-		format: format,
-		number: version_num,
+	version := version.QRVersion{
+		Format: format,
+		Number: version_num,
 	}
 
-	character_count := character_count(mode, version, r.input)
+	character_count := character_count(mode, version, r.input_data)
 
-	output := ConcatMany(GetModeIndicatorBits(version, mode), character_count, input_data_bits)
+	output := bitseq.ConcatMany(modes.GetModeIndicatorBits(version, mode), character_count, input_data_bits)
 
 	// Add Padding
 	// Calculate total data capacity in bytes
-	dataInfo := capacityData[version.number]
+	dataInfo := capacityData[version.Number]
 	ecInfo := dataInfo.ecInfo[errcorr(r.err_corr_level)]
 	totalECCodewords := 0
 	for _, group := range ecInfo.BlockGroups {
@@ -842,14 +787,14 @@ func NewQRCode(r QRRequest) *qr {
 	}
 	dataCapacityBytes := dataInfo.totalCodewords - totalECCodewords
 
-	output = add_padding(output, dataCapacityBytes)
+	output = ApplyQRPadding(output, dataCapacityBytes)
 
-	print_bit_seq(output)
+	fmt.Println(output.String())
 
 	// NOTE: hasta acá va bien el ejemplo ======
 
 	// Calculate error correction codewords
-	size := 21 + (version.number-1)*4
+	size := 21 + (version.Number-1)*4
 	matrix := make([][]module, size)
 	isFunctionPattern := make([][]bool, size)
 	for i := range size {
@@ -862,7 +807,7 @@ func NewQRCode(r QRRequest) *qr {
 		version:             version,
 		error_corr_level:    errcorr(r.err_corr_level),
 		size:                size,
-		data:                []byte(r.input),
+		data:                []byte(r.input_data),
 		encoded_data:        output,
 		mode:                mode,
 		debug_no_mask:       r.debug_no_mask,
@@ -906,16 +851,6 @@ func (m *module) Color() color.Color {
 	}
 }
 
-func (m *module) Char() string {
-	if m.bit == Zero {
-		return White
-	} else if m.bit == One {
-		return Black
-	} else {
-		return undef
-	}
-}
-
 func (qr *qr) String() string {
 	b := strings.Builder{}
 	b.WriteString(fmt.Sprintf("QR version %s (size %d)", qr.FullVersion(), qr.size))
@@ -937,7 +872,7 @@ const (
 	ShapeSquare  Shape = "square"
 	ShapeCircle  Shape = "circle"
 	ShapeRounded Shape = "rounded"
-	ShapeDiamond Shape = "diamond"
+	ShapeSlanted Shape = "slanted"
 )
 
 func (qr *qr) Draw(shape Shape) {
@@ -971,25 +906,26 @@ func (qr *qr) Draw(shape Shape) {
 }
 
 type QRRequest struct {
-	input          string
+	input_data     string
 	is_micro       bool
 	err_corr_level string
 	version        int
-	debug_no_mask  bool
+	// TODO: Remove later
+	debug_no_mask bool
 }
 
 func main() {
 	args := os.Args[1:]
 
 	if len(args) > 0 && (args[0] == "-h" || args[0] == "--help") {
-		fmt.Println("Usage: qr-decoder [ErrorCorrectionLevel] [Data] [Version] [IsMicro] [Shape]")
+		fmt.Println("Usage: qr-decoder [Data] [ErrorCorrectionLevel] [Version] [IsMicro] [Shape]")
 		fmt.Println("")
 		fmt.Println("Arguments:")
-		fmt.Println("  ErrorCorrectionLevel: L, M, Q, H (default: L)")
 		fmt.Println("  Data: String to encode (default: \"01234567\")")
+		fmt.Println("  Shape: square, circle, rounded, diamond (default: square)")
+		fmt.Println("  ErrorCorrectionLevel: L, M, Q, H (default: L)")
 		fmt.Println("  Version: QR Code version 1-40 (optional, auto-detected if 0 or omitted)")
 		fmt.Println("  IsMicro: true/false (default: false)")
-		fmt.Println("  Shape: square, circle, rounded, diamond (default: square)")
 		fmt.Println("  --debug-no-mask: Disable masking for debugging (optional)")
 		fmt.Println("")
 		fmt.Println("Examples:")
@@ -998,22 +934,27 @@ func main() {
 		return
 	}
 
+	// Data
+	data := "01234567"
+	if len(args) > 0 {
+		data = args[0]
+	}
+
+	var shape Shape = ShapeSquare
+	if len(args) > 1 {
+		shape = Shape(args[1])
+	}
+
 	// Error correction level parsing
 	var err_corr_level string
-	if len(args) > 0 {
-		if args[0] == ERR_CORR_L || args[0] == ERR_CORR_M || args[0] == ERR_CORR_Q || args[0] == ERR_CORR_H {
-			err_corr_level = args[0]
+	if len(args) > 2 {
+		if args[2] == ERR_CORR_L || args[2] == ERR_CORR_M || args[2] == ERR_CORR_Q || args[2] == ERR_CORR_H {
+			err_corr_level = args[2]
 		} else {
 			panic("could not parse 'err_corr_level'")
 		}
 	} else {
 		err_corr_level = "L"
-	}
-
-	// Data
-	data := "01234567"
-	if len(args) > 1 {
-		data = args[1]
 	}
 
 	// Version
@@ -1023,41 +964,28 @@ func main() {
 	}
 
 	var is_micro bool
-	if len(args) > 3 {
-		if v, err := strconv.ParseBool(args[3]); err == nil {
+	if len(args) > 4 {
+		if v, err := strconv.ParseBool(args[4]); err == nil {
 			is_micro = v
 		} else {
 			panic("could not parse 'is_micro'")
 		}
 	}
 
-	var shape Shape = ShapeCircle
-	if len(args) > 4 {
-		shape = Shape(args[4])
-	}
-
 	var debug_no_mask bool
-	for _, arg := range args {
-		if arg == "--debug-no-mask" {
-			debug_no_mask = true
-			break
-		}
+	if slices.Contains(args, "--debug-no-mask") {
+		debug_no_mask = true
 	}
 
 	req := QRRequest{
-		input:          data,
+		input_data:     data,
 		is_micro:       is_micro,
 		err_corr_level: err_corr_level,
 		version:        int(version),
 		debug_no_mask:  debug_no_mask,
 	}
 
-	// qr := NewQRCode(version, err_corr_level, data)
 	qr := NewQRCode(req)
-	fmt.Println(qr.String())
-	fmt.Printf("Mode: %s\n", qr.mode)
-	formatInfo, _ := GenerateFormatInformation(qr.error_corr_level, qr.mask)
-	fmt.Printf("Mask Pattern: %d (%015b)\n", qr.mask, formatInfo)
+	qr.DebugPrint()
 	qr.Draw(shape)
-
 }

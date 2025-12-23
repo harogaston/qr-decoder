@@ -82,7 +82,7 @@ func TestCalculateBCH(t *testing.T) {
 	poly := uint(0x537)
 	expected := uint(0b0011011100)
 
-	got := calculateBCH(data, poly)
+	got := encodeBCH15_5(data, poly)
 	if got != expected {
 		t.Errorf("calculateBCH(0x%X, 0x%X) = 0x%X, want 0x%X", data, poly, got, expected)
 	}

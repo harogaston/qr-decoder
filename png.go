@@ -58,7 +58,7 @@ func WritePNG(req PNGRequest) {
 				dc.Fill()
 			case ShapeCircle:
 				radius := size / 2
-				dc.DrawCircle(posX+radius, posY+radius, radius)
+				dc.DrawCircle(posX+radius, posY+radius, radius-1)
 				dc.Fill()
 			case ShapeRounded:
 				// Add 10% total padding (5% on each side)
@@ -74,7 +74,7 @@ func WritePNG(req PNGRequest) {
 				}
 				dc.DrawRoundedRectangle(posX+padding, posY+padding, newSize, newSize, r)
 				dc.Fill()
-			case ShapeDiamond:
+			case ShapeSlanted:
 				// Rotate 45 degrees around center
 				dc.Push()
 				dc.RotateAbout(gg.Radians(45), posX+size/2, posY+size/2)

@@ -19,14 +19,14 @@ func TestInterleaving(t *testing.T) {
 	// Create QR Code
 	// This should not panic
 	qr := NewQRCode(QRRequest{
-		input:          input,
+		input_data:     input,
 		err_corr_level: ERR_CORR_Q,
 	})
 
-	if qr.version.number < 5 {
-		t.Logf("Version selected: %d. Expected >= 5 for multi-block test.", qr.version.number)
+	if qr.version.Number < 5 {
+		t.Logf("Version selected: %d. Expected >= 5 for multi-block test.", qr.version.Number)
 	} else {
-		t.Logf("Version selected: %d. Multi-block test active.", qr.version.number)
+		t.Logf("Version selected: %d. Multi-block test active.", qr.version.Number)
 	}
 
 	// We can't easily verify the matrix content without a decoder,
@@ -43,7 +43,7 @@ func TestAlphanumeric(t *testing.T) {
 	// Should select Alphanumeric Mode
 
 	qr := NewQRCode(QRRequest{
-		input:          input,
+		input_data:     input,
 		err_corr_level: ERR_CORR_L,
 	})
 
@@ -59,7 +59,7 @@ func TestAlphanumeric(t *testing.T) {
 	// V1-L capacity: 19 bytes = 152 bits.
 	// Fits easily in V1.
 
-	if qr.version.number != 1 {
-		t.Errorf("Expected Version 1, got %d", qr.version.number)
+	if qr.version.Number != 1 {
+		t.Errorf("Expected Version 1, got %d", qr.version.Number)
 	}
 }
