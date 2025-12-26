@@ -26,6 +26,7 @@ type qr struct {
 	encoded_data        bitseq.BitSeq
 	mode                modes.QRMode
 	mask                int
+	logo                string
 	is_function_pattern [][]bool
 	debug               bool
 }
@@ -771,6 +772,7 @@ func NewQRCode(r QRRequest) *qr {
 		data:                []byte(r.input_data),
 		encoded_data:        output,
 		mode:                mode,
+		logo:                r.logo,
 		debug:               r.debug_no_mask,
 	}
 	qr.generate()
@@ -828,17 +830,18 @@ func (qr *qr) Draw(shape writers.Shape) {
 		}
 		pixs[y] = imgRow
 	}
-	req1 := writers.PNGRequest{
-		Scale:  16,
-		Pixels: pixs,
-		Shape:  shape,
-	}
-	writers.WritePNG(req1)
+	// req1 := writers.PNGRequest{
+	// 	Scale:  16,
+	// 	Pixels: pixs,
+	// 	Shape:  shape,
+	// }
+	// writers.WritePNG(req1)
 
 	req2 := writers.SVGRequest{
 		Scale:  16,
 		Pixels: pixs,
 		Shape:  shape,
+		Logo:   qr.logo,
 	}
 	writers.WriteSVG(req2)
 
@@ -853,6 +856,7 @@ type QRRequest struct {
 	input_data     string
 	is_micro       bool
 	err_corr_level string
+	logo           string
 	version        int
 	// TODO: Remove later
 	debug_no_mask bool
@@ -868,6 +872,7 @@ func main() {
 		fmt.Println("  Data: String to encode (default: \"01234567\")")
 		fmt.Println("  Shape: square, circle, rounded, diamond (default: square)")
 		fmt.Println("  ErrorCorrectionLevel: L, M, Q, H (default: L)")
+		fmt.Println("  Logo: provide path to logo image to embed in the center (optional)")
 		fmt.Println("  Version: QR Code version 1-40 (optional, auto-detected if 0 or omitted)")
 		fmt.Println("  IsMicro: true/false (default: false)")
 		fmt.Println("  --debug-no-mask: Disable masking for debugging (optional)")
@@ -901,19 +906,16 @@ func main() {
 		err_corr_level = "L"
 	}
 
-	// Version
-	var version int64
-	if len(args) > 2 {
-		version, _ = strconv.ParseInt(args[2], 10, 64)
+	//Logo
+	var logo_path string
+	if len(args) > 3 {
+		logo_path = args[3]
 	}
 
-	var is_micro bool
+	// Version
+	var version int64
 	if len(args) > 4 {
-		if v, err := strconv.ParseBool(args[4]); err == nil {
-			is_micro = v
-		} else {
-			panic("could not parse 'is_micro'")
-		}
+		version, _ = strconv.ParseInt(args[4], 10, 64)
 	}
 
 	var debug_no_mask bool
@@ -923,7 +925,7 @@ func main() {
 
 	req := QRRequest{
 		input_data:     data,
-		is_micro:       is_micro,
+		logo:           logo_path,
 		err_corr_level: err_corr_level,
 		version:        int(version),
 		debug_no_mask:  debug_no_mask,
