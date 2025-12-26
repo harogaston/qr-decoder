@@ -1,7 +1,8 @@
-package main
+package writers
 
 import (
 	"bytes"
+	"image/color"
 	"os"
 )
 
@@ -15,7 +16,7 @@ const (
 
 type TextRequest struct {
 	Size  int
-	Chars [][]module
+	Chars [][]color.Color
 }
 
 func WriteText(req TextRequest) {
@@ -32,12 +33,12 @@ func WriteText(req TextRequest) {
 	f.WriteString(b.String())
 }
 
-func Char(m module) string {
-	switch m.bit {
-	case Zero:
-		return White
-	case One:
+func Char(c color.Color) string {
+	switch c {
+	case color.Black:
 		return Black
+	case color.White:
+		return White
 	default:
 		return undef
 	}

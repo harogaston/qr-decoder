@@ -13,6 +13,7 @@ import (
 	"github.com/harogaston/qr-decoder/bitseq"
 	"github.com/harogaston/qr-decoder/modes"
 	"github.com/harogaston/qr-decoder/version"
+	"github.com/harogaston/qr-decoder/writers"
 )
 
 // qr definition and temporary data structures
@@ -858,24 +859,7 @@ func (qr *qr) String() string {
 	return b.String()
 }
 
-func (qr *qr) Print() {
-	req := TextRequest{
-		Size:  qr.size,
-		Chars: qr.matrix,
-	}
-	WriteText(req)
-}
-
-type Shape string
-
-const (
-	ShapeSquare  Shape = "square"
-	ShapeCircle  Shape = "circle"
-	ShapeRounded Shape = "rounded"
-	ShapeSlanted Shape = "slanted"
-)
-
-func (qr *qr) Draw(shape Shape) {
+func (qr *qr) Draw(shape writers.Shape) {
 	pixs := make([][]color.Color, len(qr.matrix[0]))
 	for y, row := range qr.matrix {
 		imgRow := make([]color.Color, len(row))
@@ -884,25 +868,25 @@ func (qr *qr) Draw(shape Shape) {
 		}
 		pixs[y] = imgRow
 	}
-	req1 := PNGRequest{
+	req1 := writers.PNGRequest{
 		Scale:  16,
 		Pixels: pixs,
 		Shape:  shape,
 	}
-	WritePNG(req1)
+	writers.WritePNG(req1)
 
-	req2 := SVGRequest{
+	req2 := writers.SVGRequest{
 		Scale:  16,
 		Pixels: pixs,
 		Shape:  shape,
 	}
-	WriteSVG(req2)
+	writers.WriteSVG(req2)
 
-	req3 := TextRequest{
+	req3 := writers.TextRequest{
 		Size:  qr.size,
-		Chars: qr.matrix,
+		Chars: pixs,
 	}
-	WriteText(req3)
+	writers.WriteText(req3)
 }
 
 type QRRequest struct {
@@ -940,9 +924,9 @@ func main() {
 		data = args[0]
 	}
 
-	var shape Shape = ShapeSquare
+	var shape writers.Shape = writers.ShapeSquare
 	if len(args) > 1 {
-		shape = Shape(args[1])
+		shape = writers.Shape(args[1])
 	}
 
 	// Error correction level parsing
