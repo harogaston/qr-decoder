@@ -72,25 +72,27 @@ var charCountData = map[modes.QRMode]CharCountDataLength{
 func GetVersionNumber(mode modes.QRMode, format version.QRFormat, data bitseq.BitSeq, ecLevel errcorr) int {
 	switch format {
 	case version.FORMAT_QR, version.FORMAT_QR_MODEL_2:
-		for v := 1; v <= 40; v++ {
+		for num := 1; num <= 40; num++ {
+			v := version.QRVersion{Format: format, Number: num}
 			// 1. Mode indicator length
 			modeBits := 4 // For QR Code (except Micro)
 
 			// 2. Char count indicator length
-			charCountBits := GetCharCountLength(version.QRVersion{Format: format, Number: v}, mode)
+			charCountBits := GetCharCountLength(v, mode)
 
 			// 3. Total bits
 			totalBits := modeBits + charCountBits + data.Len()
 
 			// 4. Data capacity
-			totalCodewords, ecCodewords := getDataCapacity(v, ecLevel)
-			dataCapacityBits := (totalCodewords - ecCodewords) * 8
+			dataCapacityBits := (getTotalDataCodewords(v, ecLevel)) * 8
 
 			if totalBits <= dataCapacityBits {
-				return v
+				return num
 			}
 		}
+	case version.FORMAT_MICRO_QR:
 		// TODO: Implement Micro QR capacity check
+		panic("Micro QR not implemented yet")
 	}
 	return 0
 }

@@ -577,18 +577,11 @@ func (qr *qr) data_and_error_correction() {
 			// Extract data block
 			end := min(offset+group.DataCodewords, len(dataBytes))
 			block := dataBytes[offset:end]
-			// Ensure block is copied to avoid slicing issues if we modify it (we don't)
-			// But we need to make sure it has the correct length.
-			// If it's shorter, we should probably pad it?
-			// The spec says data codewords are filled.
-			// If we are short, it means we didn't generate enough padding bits.
-			// But we should have.
-
 			dataBlocks = append(dataBlocks, block)
 			offset = end
 
 			// Calculate EC block
-			ecBlock := reedSolomonEncode(block, ecInfo.ECCodewordsPerBlock)
+			ecBlock := reedSolomonEncode(block, group.TotalCodewords-group.DataCodewords)
 
 			fmt.Printf("Data Codewords (%d): %v\n", len(block), block)
 			fmt.Printf("EC Codewords (%d): %v\n", len(ecBlock), ecBlock)
@@ -617,11 +610,18 @@ func (qr *qr) data_and_error_correction() {
 	}
 
 	// 4. Interleave EC
-	// All EC blocks have same length
-	ecLen := ecInfo.ECCodewordsPerBlock
-	for i := 0; i < ecLen; i++ {
+	// Max EC length
+	maxECLen := 0
+	for _, b := range ecBlocks {
+		if len(b) > maxECLen {
+			maxECLen = len(b)
+		}
+	}
+	for i := 0; i < maxECLen; i++ {
 		for _, block := range ecBlocks {
-			finalMessage = append(finalMessage, block[i])
+			if i < len(block) {
+				finalMessage = append(finalMessage, block[i])
+			}
 		}
 	}
 
@@ -778,23 +778,12 @@ func NewQRCode(r QRRequest) *qr {
 
 	output := bitseq.ConcatMany(modes.GetModeIndicatorBits(version, mode), character_count, input_data_bits)
 
-	// Add Padding
-	// Calculate total data capacity in bytes
-	dataInfo := capacityData[version.Number]
-	ecInfo := dataInfo.ecInfo[errcorr(r.err_corr_level)]
-	totalECCodewords := 0
-	for _, group := range ecInfo.BlockGroups {
-		totalECCodewords += ecInfo.ECCodewordsPerBlock * group.NumBlocks
-	}
-	dataCapacityBytes := dataInfo.totalCodewords - totalECCodewords
+	// Calculate total data capacity in bytes, each word is 8 bits
+	dataCapacityBytes := getTotalDataCodewords(version, errcorr(r.err_corr_level))
 
 	output = ApplyQRPadding(output, dataCapacityBytes)
 
-	fmt.Println(output.String())
-
-	// NOTE: hasta acá va bien el ejemplo ======
-
-	// Calculate error correction codewords
+	// Initialize data structures
 	size := 21 + (version.Number-1)*4
 	matrix := make([][]module, size)
 	isFunctionPattern := make([][]bool, size)
