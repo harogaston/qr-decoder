@@ -19,8 +19,8 @@ func (qr *qr) apply_mask(maskIndex int, matrix [][]module) [][]module {
 
 	mask := get_mask_pattern_for_mask(maskIndex)
 
-	for i := 0; i < size; i++ {
-		for j := 0; j < size; j++ {
+	for i := range size {
+		for j := range size {
 			// Skip function patterns
 			if qr.isFunctionPattern(i, j) {
 				continue
@@ -28,9 +28,10 @@ func (qr *qr) apply_mask(maskIndex int, matrix [][]module) [][]module {
 
 			if mask.maskFn(i, j) {
 				// Flip the bit
-				if maskedMatrix[i][j].bit == Zero {
+				switch maskedMatrix[i][j].bit {
+				case Zero:
 					maskedMatrix[i][j].bit = One
-				} else if maskedMatrix[i][j].bit == One {
+				case One:
 					maskedMatrix[i][j].bit = Zero
 				}
 			}
@@ -54,7 +55,7 @@ func calculatePenalty(matrix [][]module) int {
 
 	// Rule 1: 5+ same color modules in a row/col
 	// Rows
-	for i := 0; i < size; i++ {
+	for i := range size {
 		runLen := 1
 		lastBit := matrix[i][0].bit
 		for j := 1; j < size; j++ {
@@ -73,7 +74,7 @@ func calculatePenalty(matrix [][]module) int {
 		}
 	}
 	// Cols
-	for j := 0; j < size; j++ {
+	for j := range size {
 		runLen := 1
 		lastBit := matrix[0][j].bit
 		for i := 1; i < size; i++ {
@@ -114,8 +115,8 @@ func calculatePenalty(matrix [][]module) int {
 
 	// Rule 4: Dark module percentage
 	darkCount := 0
-	for i := 0; i < size; i++ {
-		for j := 0; j < size; j++ {
+	for i := range size {
+		for j := range size {
 			if matrix[i][j].bit == One {
 				darkCount++
 			}

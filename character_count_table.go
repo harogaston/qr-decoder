@@ -102,14 +102,14 @@ func GetVersionNumber(mode modes.QRMode, format version.QRFormat, data bitseq.Bi
 func GetCharCountLength(qrversion version.QRVersion, mode modes.QRMode) int {
 	if qrversion.Format == version.FORMAT_MICRO_QR {
 		v := qrversion.Number
-		switch {
-		case v == 1:
+		switch v {
+		case 1:
 			return charCountData[mode][M1Version]
-		case v == 2:
+		case 2:
 			return charCountData[mode][M2Version]
-		case v == 3:
+		case 3:
 			return charCountData[mode][M3Version]
-		case v == 4:
+		case 4:
 			return charCountData[mode][M4Version]
 		}
 	}

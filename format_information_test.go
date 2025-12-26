@@ -52,7 +52,7 @@ func TestGenerateFormatInformation(t *testing.T) {
 			// Invalid Error Correction Level
 			name:        "Invalid EC Level",
 			ecLevel:     "INVALID",
-			maskPattern: 0,
+			maskPattern: -1,
 			expected:    0,
 			wantErr:     true,
 		},

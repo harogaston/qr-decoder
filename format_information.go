@@ -21,7 +21,7 @@ func GenerateFormatInformation(ecLevel errcorr, maskPattern int) (uint16, error)
 		return 0, errors.New("invalid mask pattern reference")
 	}
 
-	ecBits := get_error_correction_for_level(ecLevel)
+	ecBits := get_err_corr_bits_for_level(ecLevel)
 
 	// 2. Combine with Mask Pattern (3 bits)
 	// Format: [EC Level (2 bits)] [Mask Pattern (3 bits)]
@@ -66,7 +66,7 @@ func encodeBCH15_5(data uint, poly uint) uint {
 	// Wait, 0x537 is 10100110111. That's 11 bits. MSB is bit 10.
 
 	// We want to eliminate the 1s in the data part.
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		// Check if the MSB of the current remainder is 1.
 		// The MSB we are interested in is bit (14 - i).
 		if (d>>(14-i))&1 == 1 {

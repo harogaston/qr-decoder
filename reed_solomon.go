@@ -15,7 +15,7 @@ func init() {
 
 func initTables() {
 	x := 1
-	for i := 0; i < gfSize-1; i++ {
+	for i := range gfSize - 1 {
 		expTable[i] = x
 		logTable[x] = i
 		x <<= 1
@@ -24,16 +24,6 @@ func initTables() {
 		}
 	}
 	// logTable[0] is undefined, but often set to 0 or handled separately
-}
-
-// gfAdd adds two numbers in GF(256) (XOR)
-func gfAdd(a, b int) int {
-	return a ^ b
-}
-
-// gfSub subtracts two numbers in GF(256) (XOR, same as add)
-func gfSub(a, b int) int {
-	return a ^ b
 }
 
 // gfMul multiplies two numbers in GF(256)
@@ -66,14 +56,6 @@ func gfPow(a, b int) int {
 	return expTable[(logTable[a]*b)%(gfSize-1)]
 }
 
-// gfInv calculates the multiplicative inverse of a in GF(256)
-func gfInv(a int) int {
-	if a == 0 {
-		panic("inverse of zero")
-	}
-	return expTable[(gfSize-1)-logTable[a]]
-}
-
 // Polynomial arithmetic
 
 type polynomial struct {
@@ -94,10 +76,6 @@ func newPolynomial(coeffs []int) *polynomial {
 
 func (p *polynomial) degree() int {
 	return len(p.coeffs) - 1
-}
-
-func (p *polynomial) get(index int) int {
-	return p.coeffs[index]
 }
 
 func polyMul(p1, p2 *polynomial) *polynomial {
@@ -161,7 +139,7 @@ func polyMod(dividend, divisor *polynomial) *polynomial {
 
 func generateGeneratorPolynomial(numECCodewords int) *polynomial {
 	p := newPolynomial([]int{1})
-	for i := 0; i < numECCodewords; i++ {
+	for i := range numECCodewords {
 		// (x - 2^i) -> (x + 2^i) in GF(2^8) since add/sub are XOR
 		// coeffs: [1, 2^i]
 		term := newPolynomial([]int{1, gfPow(2, i)})

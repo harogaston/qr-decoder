@@ -27,7 +27,7 @@ type qr struct {
 	mode                modes.QRMode
 	mask                int
 	is_function_pattern [][]bool
-	debug_no_mask       bool
+	debug               bool
 }
 
 func (qr *qr) DebugPrint() {
@@ -78,8 +78,8 @@ func (qr *qr) generate() {
 		copy(originalMatrix[i], qr.matrix[i])
 	}
 
-	if qr.debug_no_mask {
-		fmt.Println("DEBUG: Masking disabled (--debug-no-mask)")
+	if qr.debug {
+		fmt.Println("DEBUG: Masking disabled")
 		// Use original matrix, but we still need to place format info.
 		// We'll use mask 0 for format info generation, but won't apply the mask XOR to data.
 		qr.matrix = originalMatrix
@@ -88,7 +88,7 @@ func (qr *qr) generate() {
 		bestMatrix = originalMatrix
 		bestMatrixMask = 0
 	} else {
-		for mask := 0; mask < 8; mask++ {
+		for mask := range 8 {
 			// Apply mask
 			masked := qr.apply_mask(mask, originalMatrix)
 
@@ -131,9 +131,9 @@ func (qr *qr) add_quiet_zone() {
 	newSize := qr.size + 2*quietZoneWidth
 	newMatrix := make([][]module, newSize)
 
-	for i := 0; i < newSize; i++ {
+	for i := range newSize {
 		newMatrix[i] = make([]module, newSize)
-		for j := 0; j < newSize; j++ {
+		for j := range newSize {
 			// Default is white (Zero)
 			newMatrix[i][j] = module{bit: Zero}
 		}
@@ -163,7 +163,7 @@ func (qr *qr) place_format_information(mask int) {
 
 	// Convert to modules (bit 14 is MSB, bit 0 is LSB)
 	format_modules := make([]module, 15)
-	for i := 0; i < 15; i++ {
+	for i := range 15 {
 		if (formatInfo>>(14-i))&1 == 1 {
 			format_modules[i] = module{bit: One}
 		} else {
@@ -173,7 +173,7 @@ func (qr *qr) place_format_information(mask int) {
 
 	// Copy 1: Top-Left (around finder pattern)
 	// Bits 14-9 at (8, 0-5)
-	for i := 0; i < 6; i++ {
+	for i := range 6 {
 		qr.matrix[8][i] = format_modules[i]
 	}
 	// Bit 8 at (8, 7)
@@ -183,19 +183,19 @@ func (qr *qr) place_format_information(mask int) {
 	// Bit 6 at (7, 8)
 	qr.matrix[7][8] = format_modules[8]
 	// Bits 5-0 at (5-0, 8)
-	for i := 0; i < 6; i++ {
+	for i := range 6 {
 		qr.matrix[5-i][8] = format_modules[9+i]
 	}
 
 	// Copy 2: Split (Top-Right and Bottom-Left)
 	// Top-Right: Bits 7-0 at (8, size-8 to size-1)
 	// Bit 7 at (8, size-8) ... Bit 0 at (8, size-1)
-	for i := 0; i < 8; i++ {
+	for i := range 8 {
 		qr.matrix[8][qr.size-8+i] = format_modules[7+i] // format_modules[7] is Bit 7, [14] is Bit 0
 	}
 	// Bottom-Left: Bits 14-8 at (size-7 to size-1, 8)
 	// Bit 14 at (size-7, 8) ... Bit 8 at (size-1, 8)
-	for i := 0; i < 7; i++ {
+	for i := range 7 {
 		qr.matrix[qr.size-7+i][8] = format_modules[i] // format_modules[0] is Bit 14, [6] is Bit 8
 	}
 
@@ -402,41 +402,6 @@ func (qr *qr) add_alignment_pattern_module(row int, col int) {
 	qr.is_function_pattern[row][col] = true
 }
 
-// Converts a unit to a character sequence of ones and zeros
-// `targetSize` controls left padding (cannot be smaller than the
-// number of bits needed to represet `num`), if zero no padding is added
-func uint_to_string(num uint, targetSize int) string {
-	res := strings.Builder{}
-	// The number of bits needed to represent 'num'
-	numBits := bits.Len(uint(num))
-
-	// Adjust for desired size
-	var padding string
-	if targetSize > 0 {
-		if targetSize >= numBits {
-			for range targetSize - numBits {
-				padding = fmt.Sprintf("0%s", padding)
-			}
-		} else {
-			panic("cannot write uint to desired size")
-		}
-	}
-
-	res.WriteString(padding)
-
-	for range numBits {
-		if num&(1<<(numBits-1)) == 1<<(numBits-1) {
-			res.WriteString("1")
-		} else {
-			res.WriteString("0")
-		}
-		// Shift left by 1 to check the next bit
-		num <<= 1
-	}
-
-	return res.String()
-}
-
 // Converts a unit to a slice od modules. `targetSize` controls
 // left padding (cannot be smaller than the number of bits needed to represet `num`)
 // if zero, no padding is added
@@ -583,8 +548,10 @@ func (qr *qr) data_and_error_correction() {
 			// Calculate EC block
 			ecBlock := reedSolomonEncode(block, group.TotalCodewords-group.DataCodewords)
 
-			fmt.Printf("Data Codewords (%d): %v\n", len(block), block)
-			fmt.Printf("EC Codewords (%d): %v\n", len(ecBlock), ecBlock)
+			if qr.debug {
+				fmt.Printf("Data Codewords (%d): %v\n", len(block), block)
+				fmt.Printf("EC Codewords (%d): %v\n", len(ecBlock), ecBlock)
+			}
 
 			ecBlocks = append(ecBlocks, ecBlock)
 		}
@@ -645,7 +612,7 @@ func (qr *qr) placeCodewords(data []byte) {
 		}
 
 		for row >= 0 && row < qr.size {
-			for c := 0; c < 2; c++ {
+			for c := range 2 {
 				x := col - c
 				y := row
 
@@ -682,11 +649,6 @@ func (qr *qr) placeCodewords(data []byte) {
 		direction = -direction // Change direction
 		col -= 2
 	}
-}
-
-// Append or concatenate two uints (effectively left shifts)
-func uint_append(first, second uint) uint {
-	return first<<bits.Len(uint(second)) + second
 }
 
 // Calculates character count of given input data in the
@@ -800,7 +762,7 @@ func NewQRCode(r QRRequest) *qr {
 		data:                []byte(r.input_data),
 		encoded_data:        output,
 		mode:                mode,
-		debug_no_mask:       r.debug_no_mask,
+		debug:               r.debug_no_mask,
 	}
 	qr.generate()
 	return qr
@@ -832,19 +794,19 @@ type module struct {
 }
 
 func (m *module) Color() color.Color {
-	if m.bit == Zero {
+	switch m.bit {
+	case Zero:
 		return color.White
-	} else if m.bit == One {
+	case One:
 		return color.Black
-	} else {
+	default:
 		return color.Transparent
 	}
 }
 
 func (qr *qr) String() string {
 	b := strings.Builder{}
-	b.WriteString(fmt.Sprintf("QR version %s (size %d)", qr.FullVersion(), qr.size))
-
+	fmt.Fprintf(&b, "QR version %s (size %d)", qr.FullVersion(), qr.size)
 	return b.String()
 }
 
