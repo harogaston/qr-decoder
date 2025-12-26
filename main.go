@@ -34,7 +34,16 @@ func (qr *qr) DebugPrint() {
 	fmt.Println(qr.String())
 	fmt.Printf("Mode: %s\n", qr.mode)
 	formatInfo, _ := GenerateFormatInformation(qr.error_corr_level, qr.mask)
-	fmt.Printf("Mask Pattern: %d (%015b)\n", qr.mask, formatInfo)
+	bs := bitseq.FromInt(uint64(formatInfo), 15)
+	var formatColors []string
+	for i := range 15 {
+		if bs.Bit(i) {
+			formatColors = append(formatColors, writers.Black)
+		} else {
+			formatColors = append(formatColors, writers.White)
+		}
+	}
+	fmt.Printf("Mask Pattern: %d %s\n", qr.mask, formatColors)
 }
 
 func (qr *qr) generate() {
