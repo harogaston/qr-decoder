@@ -5,17 +5,12 @@ import (
 	"image/color"
 	"os"
 
-	// "github.com/harogaston/qr-decoder/images"
 	svg "github.com/twpayne/go-svg"
 	"github.com/twpayne/go-svg/svgpath"
 )
 
 const output_file_path string = "qr.svg"
-const roundedCornerPath = "M${x},${y} v ${size} h ${size} v ${-size/2} a ${size/2},${size/2} 0,0,0 ${-size/2},${-size/2} z"
-const squircleCurvature = 0.75
-const squirclePath = "M0,${size/2} C 0 ${curvA}, ${curvA} 0, ${size/2} 0 S ${size} ${curvA}, ${size} ${size/2}, ${curvB} ${size}, ${size/2} ${size}, 0 ${curvB}, 0 ${size/2}"
-
-const logoRelativeSize = 5
+const logoRelativeSize = 1. / 5.
 
 type SVGRequest struct {
 	Scale int
@@ -56,32 +51,6 @@ func WriteSVG(req SVGRequest) {
 		),
 	)
 
-	// Finder pattern block
-	// canvas.Group(`id="finderpattern"`)
-	// CircleFinderPattern(canvas, req.Color, 4, 4, req.Scale)
-	// CircleFinderPattern(canvas, req.Color, (dim - 7 - 4), 4, req.Scale)
-	// CircleFinderPattern(canvas, req.Color, 4, (dim - 7 - 4), req.Scale)
-	// canvas.Gend()
-	// canvas.Square(0, 0, req.Scale, `id="cell"`)
-	// squirclePathExp := strings.ReplaceAll(squirclePath, "${size}", fmt.Sprintf("%d", req.Scale))
-	// squirclePathExp = strings.ReplaceAll(squirclePathExp, "${size/2}", fmt.Sprintf("%d", req.Scale/2))
-	// squirclePathExp = strings.ReplaceAll(squirclePathExp, "${curvA}", fmt.Sprintf("%.f", float32(req.Scale/2.)*float32(1.-squircleCurvature)))
-	// squirclePathExp = strings.ReplaceAll(squirclePathExp, "${curvB}", fmt.Sprintf("%.f", float32(req.Scale)-float32(req.Scale/2.)*float32(1.-squircleCurvature)))
-	// canvas.Path(squirclePathExp, `id="cell"`, `transform="rotate(0,80,80)"`)
-	//
-	// // Finder pattern block
-	// canvas.Group(`id="finderpattern"`)
-	// SquircleFinderPattern(canvas, req.Color, 4, 4, req.Scale)
-	// SquircleFinderPattern(canvas, req.Color, (dim - 7 - 4), 4, req.Scale)
-	// SquircleFinderPattern(canvas, req.Color, 4, (dim - 7 - 4), req.Scale)
-	// canvas.Gend()
-	// pathExpression := strings.ReplaceAll(roundedCornerPath, "${x}", fmt.Sprintf("%d", x*req.Scale))
-	// pathExpression = strings.ReplaceAll(pathExpression, "${y}", fmt.Sprintf("%d", y*req.Scale))
-	// pathExpression = strings.ReplaceAll(pathExpression, "${size}", fmt.Sprintf("%d", req.Scale))
-	// pathExpression = strings.ReplaceAll(pathExpression, "${-size/2}", fmt.Sprintf("%d", -req.Scale/2))
-	// pathExpression = strings.ReplaceAll(pathExpression, "${size/2}", fmt.Sprintf("%d", req.Scale/2))
-	// canvas.Path(pathExpression, SquareStyle(c))
-
 	// All Modules
 	for y, row := range req.Cells {
 		for x, c := range row {
@@ -115,95 +84,58 @@ func WriteSVG(req SVGRequest) {
 		svg.Use().Href(svg.String("#finderpattern")).XY(0, float64(dim-7), svg.Number),
 	)
 
-	// Superimpose logo
-	if req.Logo != "" {
-		logoSize := float64(dim) / 5.
-		logoClipPath := svg.Use().Href(svg.String("#" + string(req.Shape))).Style("fill:red")
-		logoClipPath.Attrs["transform"] = svg.String(fmt.Sprintf("scale(%f) translate(%f %f)", logoSize, (float64(dim)/2-logoSize/2)/logoSize, (float64(dim)/2-logoSize/2)/logoSize))
+	// Draw logo ensuring a minimum size of 5 modules
+	logoSize := int(float64(dim) * logoRelativeSize)
+	logoSize += (logoSize ^ dim) & 1
+	fmt.Println("Logo size:", logoSize)
+
+	if req.Logo != "" && logoSize >= 5 {
+		logoPos := dim/2 - logoSize/2
+
+		// Cleanup overlapping QR modules
+		padding := 0.
+		switch req.Shape {
+		case ShapeCircle:
+			padding = 1
+		case ShapeSquircle:
+			padding = 2
+		case ShapeSquare:
+			padding = 0
+		}
+		startCell := logoPos
+		endCell := startCell + logoSize
+
+		center := float64(logoPos) + float64(logoSize)/2.
+		radius := float64(logoSize/2) + padding
+		for y := startCell; y < endCell; y++ {
+			for x := startCell; x < endCell; x++ {
+				dx := float64(x) + .5 - center
+				dy := float64(y) + .5 - center
+				distance := dx*dx + dy*dy
+				if distance < radius*radius {
+					canvas.AppendChildren(
+						svg.Use().XY(float64(x), float64(y), svg.Number).Href("#square").Style("fill:red"),
+					)
+				}
+			}
+		}
+
+		// Place logo with clipping path
+		logoClipPath := svg.Use().Href(svg.String("#" + string(req.Shape)))
+		logoClipPath.Attrs["transform"] = svg.String(fmt.Sprintf("scale(%d) translate(%f %f)", logoSize, float64(logoPos)/float64(logoSize), float64(logoPos)/float64(logoSize)))
 		canvas.AppendChildren(
 			svg.ClipPath().ID("logoClip").AppendChildren(
 				logoClipPath,
 			),
 			svg.Image().Href(svg.String(req.Logo)).XYWidthHeight(
-				float64(dim)/2.-logoSize/2, float64(dim)/2.-logoSize/2, logoSize, logoSize, svg.Number,
+				float64(logoPos), float64(logoPos), float64(logoSize), float64(logoSize), svg.Number,
 			).ClipPath("url(#logoClip)"),
 		)
-		// 	// Create rounded logo version
-		// 	logoPath := images.MakeLogo(req.Logo)
-		// 	logoSize := dim / 5 * req.Scale
-		//
-		// 	// Delete overlapping QR modules
-		// 	// For all cells inside the square of logoSize, if any cell corners overlap, draw white square
-		// 	logoDim := dim/logoRelativeSize + 1 // logo size in cells
-		//
-		// 	startCell := (dim - logoDim) / 2
-		// 	endCell := startCell + logoDim
-		//
-		// 	for y := startCell; y <= endCell; y++ {
-		// 		for x := startCell; x <= endCell; x++ {
-		// 			// Check if inside logo circle area
-		// 			center := dim / 2
-		// 			radius := logoDim / 2
-		// 			radius += 1 // Add some padding
-		// 			dx := x - center
-		// 			dy := y - center
-		// 			distance := dx*dx + dy*dy
-		// 			if distance < radius*radius {
-		// 				canvas.Square(x*req.Scale, y*req.Scale, req.Scale, NoStrokeStyle(req.Color, color.White))
-		// 			}
-		// 		}
-		// 	}
-		//
-		// 	// Place logo at center
-		// 	logoPos := (canvasSize - logoSize) / 2
-		// 	canvas.Image(logoPos, logoPos, logoSize, logoSize, logoPath)
 	}
 	if _, err := canvas.WriteToIndent(file, "", "  "); err != nil {
 		panic(err)
 	}
 }
-
-// func SquircleFinderPattern(canvas *svg.SVG, targetColor color.Color, x, y int, scale int) {
-// 	canvas.Square(x*scale, y*scale, 8*scale, NoStrokeStyle(targetColor, color.White))
-//
-// 	squirclePathExp := strings.ReplaceAll(squirclePath, "${size}", fmt.Sprintf("%d", 8*scale))
-// 	squirclePathExp = strings.ReplaceAll(squirclePathExp, "${size/2}", fmt.Sprintf("%d", 8*scale/2))
-// 	squirclePathExp = strings.ReplaceAll(squirclePathExp, "${curvA}", fmt.Sprintf("%.f", float32(8*scale/2.)*float32(1.-squircleCurvature)))
-// 	squirclePathExp = strings.ReplaceAll(squirclePathExp, "${curvB}", fmt.Sprintf("%.f", float32(8*scale)-float32(scale/2.)*float32(1.-squircleCurvature)))
-// 	canvas.Path(squirclePathExp, fmt.Sprintf(`transform="rotate(0,80,80) scale(%d)"`, 1), fmt.Sprintf(`transform-origin="%d %d"`, x*scale, y*scale))
-// 	// canvas.Use(x*scale, y*scale, "#cell", StrokeStyle(targetColor, color.Black), fmt.Sprintf(`transform="scale(%d)"`, 8*scale))
-// 	// canvas.Use((x+1)*scale, (y+1)*scale, "#cell", StrokeStyle(targetColor, color.White), fmt.Sprintf(`transform="scale(%d)"`, 6*scale))
-// 	// canvas.Use((x+2)*scale, (y+2)*scale, "#cell", StrokeStyle(targetColor, color.Black), fmt.Sprintf(`transform="scale(%d)"`, 4*scale))
-// }
-//
-// func SquareFinderPattern(canvas *svg.SVG, targetColor color.Color, x, y int, scale int) {
-// 	canvas.Square(x*scale, y*scale, 8*scale, NoStrokeStyle(targetColor, color.White))
-// 	// canvas.Square((x)*scale, (y)*scale, 7*scale, StrokeStyle(targetColor, color.Black))
-// 	// canvas.Square((x+1)*scale, (y+1)*scale, 5*scale, StrokeStyle(targetColor, color.White))
-// 	canvas.Use((x+1)*scale, (y+1)*scale, "#cell", fmt.Sprintf(`transform-origin="%d %d"`, (x+1)*scale, (y+1)*scale), `transform="scale(5)"`, StrokeStyle(targetColor, color.Black))
-// 	canvas.Use((x+2)*scale, (y+2)*scale, "#cell", fmt.Sprintf(`transform-origin="%d %d"`, (x+2)*scale, (y+2)*scale), `transform="scale(3)"`, StrokeStyle(targetColor, color.White))
-//
-// 	// canvas.Square((x+2)*scale, (y+2)*scale, 3*scale, StrokeStyle(targetColor, color.Black))
-// }
-//
-// func CircleFinderPattern(canvas *svg.SVG, targetColor color.Color, x, y int, scale int) {
-// 	canvas.Square(x*scale, y*scale, 8*scale, NoStrokeStyle(targetColor, color.White))
-// 	canvas.Circle(
-// 		int((float32(x)+float32(3.5))*float32(scale)),
-// 		int((float32(y)+float32(3.5))*float32(scale)),
-// 		int(float32(3.5)*float32(scale)), StrokeStyle(targetColor, color.Black),
-// 	)
-// 	canvas.Circle(
-// 		int((float32(x)+float32(3.5))*float32(scale)),
-// 		int((float32(y)+float32(3.5))*float32(scale)),
-// 		int(float32(2.5)*float32(scale)), StrokeStyle(targetColor, color.White),
-// 	)
-// 	canvas.Circle(
-// 		int((float32(x)+float32(3.5))*float32(scale)),
-// 		int((float32(y)+float32(3.5))*float32(scale)),
-// 		int(float32(1.5)*float32(scale)), StrokeStyle(targetColor, color.Black),
-// 	)
-// }
 
 func NoStrokeStyle(target, source color.Color) string {
 	if source == color.Black {
