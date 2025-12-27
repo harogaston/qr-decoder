@@ -117,13 +117,16 @@ func WriteSVG(req SVGRequest) {
 
 	// Superimpose logo
 	if req.Logo != "" {
-		logoClipPath := svg.Use().Href(svg.String("#" + string(req.Shape)))
-		logoClipPath.Attrs["transform"] = svg.String(fmt.Sprintf("scale(%f)", float64(dim/5)))
+		logoSize := float64(dim) / 5.
+		logoClipPath := svg.Use().Href(svg.String("#" + string(req.Shape))).Style("fill:red")
+		logoClipPath.Attrs["transform"] = svg.String(fmt.Sprintf("scale(%f) translate(%f %f)", logoSize, (float64(dim)/2-logoSize/2)/logoSize, (float64(dim)/2-logoSize/2)/logoSize))
 		canvas.AppendChildren(
-			svg.ClipPath(logoClipPath).ID("logoClipPath"),
-			svg.Image().ClipPath(svg.String("url(#logoClipPath)")).Href(svg.String(req.Logo)).XYWidthHeight(
-				float64(dim)/2., float64(dim)/2., float64(dim)/5., float64(dim)/5., svg.Number,
+			svg.ClipPath().ID("logoClip").AppendChildren(
+				logoClipPath,
 			),
+			svg.Image().Href(svg.String(req.Logo)).XYWidthHeight(
+				float64(dim)/2.-logoSize/2, float64(dim)/2.-logoSize/2, logoSize, logoSize, svg.Number,
+			).ClipPath("url(#logoClip)"),
 		)
 		// 	// Create rounded logo version
 		// 	logoPath := images.MakeLogo(req.Logo)
