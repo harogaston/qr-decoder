@@ -830,26 +830,14 @@ func (qr *qr) Draw(shape writers.Shape) {
 		}
 		pixs[y] = imgRow
 	}
-	// req1 := writers.PNGRequest{
-	// 	Scale:  16,
-	// 	Pixels: pixs,
-	// 	Shape:  shape,
-	// }
-	// writers.WritePNG(req1)
 
-	req2 := writers.SVGRequest{
-		Scale:  16,
-		Pixels: pixs,
-		Shape:  shape,
-		Logo:   qr.logo,
+	req := writers.SVGRequest{
+		Scale: 16,
+		Cells: pixs,
+		Shape: shape,
+		Logo:  qr.logo,
 	}
-	writers.WriteSVG(req2)
-
-	req3 := writers.TextRequest{
-		Size:  qr.size,
-		Chars: pixs,
-	}
-	writers.WriteText(req3)
+	writers.WriteSVG(req)
 }
 
 type QRRequest struct {
