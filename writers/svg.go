@@ -3,6 +3,9 @@ package writers
 import (
 	"fmt"
 	"image/color"
+	"math/rand/v2"
+
+	// "math/rand/v2"
 	"os"
 
 	svg "github.com/twpayne/go-svg"
@@ -64,6 +67,88 @@ func WriteSVG(req SVGRequest) {
 		}
 	}
 
+	featEnabled := false
+	visited := make(map[int]struct{}, len(req.Cells)*len(req.Cells))
+	for y, row := range req.Cells {
+		for x, c := range row {
+			if c == color.Black && featEnabled {
+				// Check if visited
+				if _, ok := visited[y*dim+x]; !ok {
+					// Mark as visited
+					visited[y*dim+x] = struct{}{}
+					// Pick random direction
+					dir := rand.Uint64() & 1
+					// Check all neighbors in direction while same color and within bounds
+					foundNeighbor := false
+					if dir == 0 { // Horizontal
+						ny := y
+						for nx := x + 1; nx < dim && req.Cells[ny][nx] == c; nx++ {
+							if _, ok := visited[ny*dim+nx]; ok {
+								break
+							}
+							// Mark as visited
+							foundNeighbor = true
+							visited[ny*dim+nx] = struct{}{}
+							// Draw connecting shape
+							canvas.AppendChildren(
+								svg.Rect().XYWidthHeight(float64((nx-1)-4)+0.5, float64(ny-4), 1, 1, svg.Number).Style(
+									svg.String(NoStrokeStyle(req.Color, c)),
+								),
+							)
+						}
+					} else { // Vertical
+						nx := x
+						for ny := y + 1; ny < len(req.Cells) && req.Cells[ny][nx] == c; ny++ {
+							if _, ok := visited[ny*dim+nx]; ok {
+								break
+							}
+							foundNeighbor = true
+							visited[ny*dim+nx] = struct{}{}
+							canvas.AppendChildren(
+								svg.Rect().XYWidthHeight(float64(x-4), float64((ny-1)-4)+0.5, 1, 1, svg.Number).Style(
+									svg.String(NoStrokeStyle(req.Color, c)),
+								),
+							)
+						}
+					}
+					if !foundNeighbor {
+						dir = (dir + 1) & 1
+						if dir == 0 { // Horizontal
+							ny := y
+							for nx := x + 1; nx < dim && req.Cells[ny][nx] == c; nx++ {
+								if _, ok := visited[ny*dim+nx]; ok {
+									break
+								}
+								// Mark as visited
+								foundNeighbor = true
+								visited[ny*dim+nx] = struct{}{}
+								// Draw connecting shape
+								canvas.AppendChildren(
+									svg.Rect().XYWidthHeight(float64((nx-1)-4)+0.5, float64(ny-4), 1, 1, svg.Number).Style(
+										svg.String(NoStrokeStyle(req.Color, c)),
+									),
+								)
+							}
+						} else { // Vertical
+							nx := x
+							for ny := y + 1; ny < len(req.Cells) && req.Cells[ny][nx] == c; ny++ {
+								if _, ok := visited[ny*dim+nx]; ok {
+									break
+								}
+								foundNeighbor = true
+								visited[ny*dim+nx] = struct{}{}
+								canvas.AppendChildren(
+									svg.Rect().XYWidthHeight(float64(x-4), float64((ny-1)-4)+0.5, 1, 1, svg.Number).Style(
+										svg.String(NoStrokeStyle(req.Color, c)),
+									),
+								)
+							}
+						}
+					}
+				}
+			}
+		}
+	}
 	// Superimpose finder patterns
 	finderBackground := svg.Use().Href(svg.String("#square")).Style("fill:white")
 	finderBackground.Attrs["transform"] = svg.String(fmt.Sprintf("scale(%d) translate(%f, %f)", 7, 0/7., 0/7.))
@@ -114,7 +199,7 @@ func WriteSVG(req SVGRequest) {
 				distance := dx*dx + dy*dy
 				if distance < radius*radius {
 					canvas.AppendChildren(
-						svg.Use().XY(float64(x), float64(y), svg.Number).Href("#square").Style("fill:red"),
+						svg.Use().XY(float64(x), float64(y), svg.Number).Href("#square").Style("fill:white"),
 					)
 				}
 			}
