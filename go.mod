@@ -2,12 +2,4 @@ module github.com/harogaston/qr-decoder
 
 go 1.24.1
 
-require (
-	github.com/fogleman/gg v1.3.0
-	github.com/twpayne/go-svg v1.0.0
-)
-
-require (
-	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
-	golang.org/x/image v0.33.0 // indirect
-)
+require github.com/twpayne/go-svg v1.0.0

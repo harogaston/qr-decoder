@@ -1,4 +1,4 @@
-package writers
+package writer
 
 type Shape string
 

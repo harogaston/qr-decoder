@@ -13,7 +13,7 @@ import (
 	"github.com/harogaston/qr-decoder/bitseq"
 	"github.com/harogaston/qr-decoder/modes"
 	"github.com/harogaston/qr-decoder/version"
-	"github.com/harogaston/qr-decoder/writers"
+	"github.com/harogaston/qr-decoder/writer"
 )
 
 // qr definition and temporary data structures
@@ -32,6 +32,8 @@ type qr struct {
 }
 
 func (qr *qr) DebugPrint() {
+	black := "\u25A0"
+	white := "\u25A1"
 	fmt.Println(qr.String())
 	fmt.Printf("Mode: %s\n", qr.mode)
 	formatInfo, _ := GenerateFormatInformation(qr.error_corr_level, qr.mask)
@@ -39,9 +41,9 @@ func (qr *qr) DebugPrint() {
 	var formatColors []string
 	for i := range 15 {
 		if bs.Bit(i) {
-			formatColors = append(formatColors, writers.Black)
+			formatColors = append(formatColors, black)
 		} else {
-			formatColors = append(formatColors, writers.White)
+			formatColors = append(formatColors, white)
 		}
 	}
 	fmt.Printf("Mask Pattern: %d %s\n", qr.mask, formatColors)
@@ -54,7 +56,6 @@ func (qr *qr) generate() {
 	qr.timing_patterns()
 	qr.alignment_patterns()
 
-	// Encoding region
 	// Encoding region
 	// qr.format_information() // Removed: handled in masking loop
 	qr.version_information()
@@ -102,15 +103,6 @@ func (qr *qr) generate() {
 			// Apply mask
 			masked := qr.apply_mask(mask, originalMatrix)
 
-			// Add format info (it also has mask bits!)
-			// But format info is in the reserved area.
-			// The spec says:
-			// "The format information is added to the symbol after the masking process."
-			// Wait, format info contains the mask pattern.
-			// So we need to calculate penalty including format info?
-			// "The penalty score is calculated based on the entire symbol."
-			// So we should place format info (with current mask) before calculating penalty.
-
 			qr.matrix = masked // Temporarily set to masked to call format_information
 			qr.place_format_information(mask)
 
@@ -125,38 +117,7 @@ func (qr *qr) generate() {
 
 	// Set final matrix
 	qr.matrix = bestMatrix
-	qr.mask = bestMatrixMask // We need to capture the mask index
-	// Format info is already there.
-
-	qr.add_quiet_zone()
-}
-
-func (qr *qr) add_quiet_zone() {
-	// Quiet zone is 4 modules wide on all sides for standard QR codes
-	quietZoneWidth := 4
-	if qr.version.Format == "Micro" {
-		// Quiet zone is 2 modules wide on all sides for Micro QR codes
-		quietZoneWidth = 2
-	}
-	newSize := qr.size + 2*quietZoneWidth
-	newMatrix := make([][]module, newSize)
-
-	for i := range newSize {
-		newMatrix[i] = make([]module, newSize)
-		for j := range newSize {
-			// Default is white (Zero)
-			newMatrix[i][j] = module{bit: Zero}
-		}
-	}
-
-	// Copy original matrix into the center
-	for i := 0; i < qr.size; i++ {
-		for j := 0; j < qr.size; j++ {
-			newMatrix[i+quietZoneWidth][j+quietZoneWidth] = qr.matrix[i][j]
-		}
-	}
-
-	qr.matrix = newMatrix
+	qr.mask = bestMatrixMask
 }
 
 // Helper to place format info with specific mask
@@ -821,7 +782,7 @@ func (qr *qr) String() string {
 	return b.String()
 }
 
-func (qr *qr) Draw(shape writers.Shape) {
+func (qr *qr) Draw(shape writer.Shape) {
 	pixs := make([][]color.Color, len(qr.matrix[0]))
 	for y, row := range qr.matrix {
 		imgRow := make([]color.Color, len(row))
@@ -831,13 +792,13 @@ func (qr *qr) Draw(shape writers.Shape) {
 		pixs[y] = imgRow
 	}
 
-	req := writers.SVGRequest{
+	req := writer.SVGRequest{
 		Scale: 16,
 		Cells: pixs,
 		Shape: shape,
 		Logo:  qr.logo,
 	}
-	writers.WriteSVG(req)
+	writer.WriteSVG(req)
 }
 
 type QRRequest struct {
@@ -877,9 +838,9 @@ func main() {
 		data = args[0]
 	}
 
-	var shape writers.Shape = writers.ShapeSquare
+	var shape writer.Shape = writer.ShapeSquare
 	if len(args) > 1 {
-		shape = writers.Shape(args[1])
+		shape = writer.Shape(args[1])
 	}
 
 	// Error correction level parsing

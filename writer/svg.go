@@ -1,4 +1,4 @@
-package writers
+package writer
 
 import (
 	"fmt"
@@ -33,11 +33,12 @@ func WriteSVG(req SVGRequest) {
 	}
 	defer file.Close()
 
-	dim := len(req.Cells) - 8
-	canvasSize := float64(dim + 4)
+	dim := len(req.Cells)
+	// TODO: Support Minimum Quiet Zone
+	quietZone := 4
 	canvas := svg.New().
-		WidthHeight(canvasSize, canvasSize, svg.Number).
-		Transform(svg.String(fmt.Sprintf("scale(%d) translate(4, 4)", req.Scale)))
+		WidthHeight(float64(dim), float64(dim), svg.Number).
+		Transform(svg.String(fmt.Sprintf("scale(%d) translate(%d, %d)", req.Scale, quietZone, quietZone)))
 	canvas.Attrs["transform-origin"] = svg.String("0 0")
 
 	// Definitions
@@ -58,7 +59,7 @@ func WriteSVG(req SVGRequest) {
 		for x, c := range row {
 			if c == color.Black {
 				canvas.AppendChildren(
-					svg.Use().XY(float64(x-4), float64(y-4), svg.Number).Href(svg.String(fmt.Sprintf("#%s", req.Shape))).Style(
+					svg.Use().XY(float64(x), float64(y), svg.Number).Href(svg.String(fmt.Sprintf("#%s", req.Shape))).Style(
 						svg.String(GetStyle(req.Shape, req.Color, c)),
 					),
 				)
