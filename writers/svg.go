@@ -5,7 +5,6 @@ import (
 	"image/color"
 	"math/rand/v2"
 
-	// "math/rand/v2"
 	"os"
 
 	svg "github.com/twpayne/go-svg"
@@ -60,95 +59,16 @@ func WriteSVG(req SVGRequest) {
 			if c == color.Black {
 				canvas.AppendChildren(
 					svg.Use().XY(float64(x-4), float64(y-4), svg.Number).Href(svg.String(fmt.Sprintf("#%s", req.Shape))).Style(
-						svg.String(StrokeStyle(req.Color, c)),
+						svg.String(GetStyle(req.Shape, req.Color, c)),
 					),
 				)
 			}
 		}
 	}
 
-	featEnabled := false
-	visited := make(map[int]struct{}, len(req.Cells)*len(req.Cells))
-	for y, row := range req.Cells {
-		for x, c := range row {
-			if c == color.Black && featEnabled {
-				// Check if visited
-				if _, ok := visited[y*dim+x]; !ok {
-					// Mark as visited
-					visited[y*dim+x] = struct{}{}
-					// Pick random direction
-					dir := rand.Uint64() & 1
-					// Check all neighbors in direction while same color and within bounds
-					foundNeighbor := false
-					if dir == 0 { // Horizontal
-						ny := y
-						for nx := x + 1; nx < dim && req.Cells[ny][nx] == c; nx++ {
-							if _, ok := visited[ny*dim+nx]; ok {
-								break
-							}
-							// Mark as visited
-							foundNeighbor = true
-							visited[ny*dim+nx] = struct{}{}
-							// Draw connecting shape
-							canvas.AppendChildren(
-								svg.Rect().XYWidthHeight(float64((nx-1)-4)+0.5, float64(ny-4), 1, 1, svg.Number).Style(
-									svg.String(NoStrokeStyle(req.Color, c)),
-								),
-							)
-						}
-					} else { // Vertical
-						nx := x
-						for ny := y + 1; ny < len(req.Cells) && req.Cells[ny][nx] == c; ny++ {
-							if _, ok := visited[ny*dim+nx]; ok {
-								break
-							}
-							foundNeighbor = true
-							visited[ny*dim+nx] = struct{}{}
-							canvas.AppendChildren(
-								svg.Rect().XYWidthHeight(float64(x-4), float64((ny-1)-4)+0.5, 1, 1, svg.Number).Style(
-									svg.String(NoStrokeStyle(req.Color, c)),
-								),
-							)
-						}
-					}
-					if !foundNeighbor {
-						dir = (dir + 1) & 1
-						if dir == 0 { // Horizontal
-							ny := y
-							for nx := x + 1; nx < dim && req.Cells[ny][nx] == c; nx++ {
-								if _, ok := visited[ny*dim+nx]; ok {
-									break
-								}
-								// Mark as visited
-								foundNeighbor = true
-								visited[ny*dim+nx] = struct{}{}
-								// Draw connecting shape
-								canvas.AppendChildren(
-									svg.Rect().XYWidthHeight(float64((nx-1)-4)+0.5, float64(ny-4), 1, 1, svg.Number).Style(
-										svg.String(NoStrokeStyle(req.Color, c)),
-									),
-								)
-							}
-						} else { // Vertical
-							nx := x
-							for ny := y + 1; ny < len(req.Cells) && req.Cells[ny][nx] == c; ny++ {
-								if _, ok := visited[ny*dim+nx]; ok {
-									break
-								}
-								foundNeighbor = true
-								visited[ny*dim+nx] = struct{}{}
-								canvas.AppendChildren(
-									svg.Rect().XYWidthHeight(float64(x-4), float64((ny-1)-4)+0.5, 1, 1, svg.Number).Style(
-										svg.String(NoStrokeStyle(req.Color, c)),
-									),
-								)
-							}
-						}
-					}
-				}
-			}
-		}
-	}
+	// Connect neighboring modules
+	connect(req, canvas, dim)
+
 	// Superimpose finder patterns
 	finderBackground := svg.Use().Href(svg.String("#square")).Style("fill:white")
 	finderBackground.Attrs["transform"] = svg.String(fmt.Sprintf("scale(%d) translate(%f, %f)", 7, 0/7., 0/7.))
@@ -181,19 +101,19 @@ func WriteSVG(req SVGRequest) {
 		padding := 0.
 		switch req.Shape {
 		case ShapeCircle:
-			padding = 1
-		case ShapeSquircle:
 			padding = 2
+		case ShapeSquircle:
+			padding = 3
 		case ShapeSquare:
-			padding = 0
+			padding = 2
 		}
 		startCell := logoPos
 		endCell := startCell + logoSize
 
 		center := float64(logoPos) + float64(logoSize)/2.
 		radius := float64(logoSize/2) + padding
-		for y := startCell; y < endCell; y++ {
-			for x := startCell; x < endCell; x++ {
+		for y := startCell - 1; y < endCell+1; y++ {
+			for x := startCell - 1; x < endCell+1; x++ {
 				dx := float64(x) + .5 - center
 				dy := float64(y) + .5 - center
 				distance := dx*dx + dy*dy
@@ -206,12 +126,20 @@ func WriteSVG(req SVGRequest) {
 		}
 
 		// Place logo with clipping path
-		logoClipPath := svg.Use().Href(svg.String("#" + string(req.Shape)))
+		logoClipPath := svg.Use().Href("#circle")
 		logoClipPath.Attrs["transform"] = svg.String(fmt.Sprintf("scale(%d) translate(%f %f)", logoSize, float64(logoPos)/float64(logoSize), float64(logoPos)/float64(logoSize)))
+
+		logoBorderScale := float64(logoSize) + .8
+		logoBorderPos := float64(dim)/2. - float64(logoBorderScale)/2.
+		fmt.Println("Logo border position:", logoBorderPos)
+		fmt.Println("Logo border scale:", logoBorderScale)
+		logoBorder := svg.Use().Href("#circle").Style(svg.String(fmt.Sprintf("fill:none;stroke:black;stroke-width:%f", 0.25/float64(logoBorderScale))))
+		logoBorder.Attrs["transform"] = svg.String(fmt.Sprintf("scale(%f) translate(%f %f)", logoBorderScale, float64(logoBorderPos)/float64(logoBorderScale), float64(logoBorderPos)/float64(logoBorderScale)))
 		canvas.AppendChildren(
 			svg.ClipPath().ID("logoClip").AppendChildren(
 				logoClipPath,
 			),
+			logoBorder,
 			svg.Image().Href(svg.String(req.Logo)).XYWidthHeight(
 				float64(logoPos), float64(logoPos), float64(logoSize), float64(logoSize), svg.Number,
 			).ClipPath("url(#logoClip)"),
@@ -219,6 +147,88 @@ func WriteSVG(req SVGRequest) {
 	}
 	if _, err := canvas.WriteToIndent(file, "", "  "); err != nil {
 		panic(err)
+	}
+}
+
+// connect encapsulates the logic for drawing connected shapes (rectangles) based on module color.
+func connect(req SVGRequest, canvas *svg.SVGElement, dim int) {
+	// featEnabled is false in the original code, thus this whole function is effectively disabled.
+	// We preserve the original behavior.
+	featEnabled := false
+	if !featEnabled {
+		return
+	}
+
+	width := len(req.Cells) // Using len(req.Cells) for correct indexing into the visited map
+	visited := make(map[int]struct{}, width*width)
+
+	// Helper function to draw a connecting rectangle
+	drawConnectingRect := func(x, y int, dir uint64, c color.Color) {
+		if dir == 0 { // Horizontal
+			canvas.AppendChildren(
+				svg.Rect().XYWidthHeight(float64(x-4)+0.5, float64(y-4), 1, 1, svg.Number).Style(
+					svg.String(NoStrokeStyle(req.Color, c)),
+				),
+			)
+		} else { // Vertical
+			canvas.AppendChildren(
+				svg.Rect().XYWidthHeight(float64(x-4), float64(y-4)+0.5, 1, 1, svg.Number).Style(
+					svg.String(NoStrokeStyle(req.Color, c)),
+				),
+			)
+		}
+	}
+
+	// Helper function to attempt connection in a given direction
+	tryConnectInDirection := func(startX, startY int, c color.Color, currentDir uint64) bool {
+		foundNeighbor := false
+		if currentDir == 0 { // Horizontal
+			for nx := startX + 1; nx < dim && nx < width && req.Cells[startY][nx] == c; nx++ { // Original code used `nx < dim`. Preserving it.
+				if _, ok := visited[startY*width+nx]; ok {
+					break
+				}
+				foundNeighbor = true
+				visited[startY*width+nx] = struct{}{}
+				drawConnectingRect(nx-1, startY, currentDir, c) // nx-1 is the x-coordinate of the left module for the connection
+			}
+		} else { // Vertical
+			for ny := startY + 1; ny < width && req.Cells[ny][startX] == c; ny++ {
+				if _, ok := visited[ny*width+startX]; ok {
+					break
+				}
+				foundNeighbor = true
+				visited[ny*width+startX] = struct{}{}
+				drawConnectingRect(startX, ny-1, currentDir, c) // ny-1 is the y-coordinate of the top module for the connection
+			}
+		}
+		return foundNeighbor
+	}
+
+	for y, row := range req.Cells {
+		for x, c := range row {
+			if c == color.Black { // Only consider black modules
+				if _, ok := visited[y*width+x]; !ok {
+					visited[y*width+x] = struct{}{} // Mark current cell as visited
+
+					dir := rand.Uint64() & 1 // Pick random initial direction (0 for horizontal, 1 for vertical)
+
+					// Try connecting in the first direction
+					if !tryConnectInDirection(x, y, c, dir) {
+						// If no connection was found in the first direction, try the other direction
+						tryConnectInDirection(x, y, c, 1-dir)
+					}
+				}
+			}
+		}
+	}
+}
+
+func GetStyle(shape Shape, target, source color.Color) string {
+	switch shape {
+	case ShapeSquare:
+		return NoStrokeStyle(target, source)
+	default:
+		return StrokeStyle(target, source)
 	}
 }
 
